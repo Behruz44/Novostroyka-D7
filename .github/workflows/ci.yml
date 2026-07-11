@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-typecheck-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_changeme
+          POSTGRES_DB: ci_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: "postgresql://ci_user:ci_changeme@localhost:5432/ci_db?schema=public"
+      NEXTAUTH_SECRET: "ci-test-secret"
+      NEXTAUTH_URL: "http://localhost:3000"
+      S3_ENDPOINT: "http://localhost:9000"
+      S3_REGION: "us-east-1"
+      S3_ACCESS_KEY_ID: "ci-changeme-access"
+      S3_SECRET_ACCESS_KEY: "ci-changeme-secret"
+      S3_BUCKET_NAME: "stroycontrol"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - run: npx prisma generate
+
+      - run: npm run lint
+
+      - run: npm run typecheck
+
+      - run: npm run test

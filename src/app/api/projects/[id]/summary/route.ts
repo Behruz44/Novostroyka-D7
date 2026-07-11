@@ -1,0 +1,28 @@
+import { NextResponse } from "next/server";
+import { Role } from "@prisma/client";
+import { requireRole } from "@/lib/auth-guard";
+import { getProjectSummary } from "@/lib/services/summary";
+
+export const dynamic = "force-dynamic";
+
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } },
+) {
+  const { session, error } = await requireRole(["OWNER", "ADMIN"] as Role[]);
+
+  if (error) return error;
+
+  const projectId = params.id;
+
+  if (
+    session!.user.role !== "ADMIN" &&
+    !session!.user.projectIds.includes(projectId)
+  ) {
+    return NextResponse.json({ error: "Нет доступа к проекту" }, { status: 403 });
+  }
+
+  const summary = await getProjectSummary(projectId);
+
+  return NextResponse.json(summary);
+}

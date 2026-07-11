@@ -1,0 +1,164 @@
+// Prisma schema - TASK 1.1 full data model
+// See PROJECT_BRAIN section 3 for complete data model
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  FOREMAN
+  ADMIN
+}
+
+enum StageStatus {
+  WAIT
+  REVIEW
+  DONE
+}
+
+enum MarkStatus {
+  REVIEW
+  APPROVED
+  REJECTED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  phone        String   @unique
+  name         String
+  passwordHash String
+  role         Role
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  projectMemberships ProjectMember[]
+  stageMarks         StageMark[] @relation("StageMarkCreatedBy")
+  reviewedStageMarks StageMark[] @relation("StageMarkReviewedBy")
+  expenses           Expense[]
+  eventLogs          EventLog[]
+}
+
+model Project {
+  id               String   @id @default(cuid())
+  name             String
+  address          String?
+  totalBudgetMinor BigInt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  members     ProjectMember[]
+  stages      Stage[]
+  expenses    Expense[]
+  budgetLines BudgetLine[]
+  eventLogs   EventLog[]
+}
+
+model ProjectMember {
+  id        String @id @default(cuid())
+  projectId String
+  userId    String
+  role      Role
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+}
+
+model Stage {
+  id        String      @id @default(cuid())
+  projectId String
+  name      String
+  floor     Int
+  weightBp  Int
+  order     Int
+  status    StageStatus @default(WAIT)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stageMarks StageMark[]
+
+  @@index([projectId])
+  @@index([projectId, order])
+}
+
+model StageMark {
+  id              String     @id @default(cuid())
+  stageId         String
+  status          MarkStatus @default(REVIEW)
+  photoKeys       String[]
+  comment         String?
+  createdBy       String
+  clientRequestId String?    @unique
+  reviewedAt      DateTime?
+  reviewedBy      String?
+  createdAt       DateTime   @default(now())
+
+  stage    Stage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  user     User  @relation("StageMarkCreatedBy", fields: [createdBy], references: [id], onDelete: Cascade)
+  reviewer User? @relation("StageMarkReviewedBy", fields: [reviewedBy], references: [id], onDelete: SetNull)
+
+  @@index([stageId])
+}
+
+model Expense {
+  id              String   @id @default(cuid())
+  projectId       String
+  budgetLineId    String
+  amountMinor     BigInt
+  description     String
+  expenseDate     DateTime
+  createdBy       String
+  clientRequestId String?  @unique
+  createdAt       DateTime @default(now())
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  budgetLine BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Restrict)
+
+  @@index([projectId])
+  @@index([projectId, expenseDate])
+  @@index([budgetLineId])
+}
+
+model BudgetLine {
+  id           String   @id @default(cuid())
+  projectId    String
+  category     String
+  plannedMinor BigInt
+  createdAt    DateTime @default(now())
+
+  project  Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  expenses Expense[]
+
+  @@unique([projectId, category])
+  @@index([projectId])
+}
+
+model EventLog {
+  id              String   @id @default(cuid())
+  projectId       String
+  userId          String
+  action          String
+  entity          String
+  entityId        String
+  metadata        Json?
+  clientRequestId String?
+  createdAt       DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([projectId, createdAt])
+}

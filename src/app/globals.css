@@ -1,22 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
+  /* Brand palette */
+  --navy: #16324a;
+  --teal: #0e7a6c;
+  --gold: #b07c1f;
+  --danger: #c0392b;
+  --panel: #ffffff;
+
+  --background: #ffffff;
+  --foreground: #16324a;
+  --card: #ffffff;
+  --card-foreground: #16324a;
+  --popover: #ffffff;
+  --popover-foreground: #16324a;
+  --primary: #16324a;
+  --primary-foreground: #f4f6f8;
+  --secondary: #f0f1ee;
+  --secondary-foreground: #16324a;
+  --muted: #f0f1ee;
+  --muted-foreground: #5c6b76;
+  --accent: #eef1f0;
+  --accent-foreground: #0e7a6c;
+  --destructive: #c0392b;
+  --border: #e2e2dc;
+  --input: #e2e2dc;
+  --ring: #0e7a6c;
+  --radius: 0.5rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #5c6b76;
+  --sidebar-primary: #0e7a6c;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f0f1ee;
+  --sidebar-accent-foreground: #16324a;
+  --sidebar-border: #e2e2dc;
+  --sidebar-ring: #0e7a6c;
+
   --color-teal: #0e7a6c;
   --color-navy: #16324a;
   --color-gold: #b07c1f;
   --color-danger: #c0392b;
   --color-bg: #ffffff;
   --color-bg-alt: #fafaf8;
-  --font-sans: var(--font-inter), system-ui, sans-serif;
-  --font-mono: var(--font-mono), monospace;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 
-body {
-  font-family: var(--font-sans);
-  background: var(--color-bg);
-  color: var(--color-navy);
+  body {
+    font-family: var(--font-inter), system-ui, sans-serif;
+    background: var(--background);
+    color: var(--foreground);
+  }
 }

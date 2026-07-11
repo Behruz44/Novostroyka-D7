@@ -25,7 +25,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru" className={`${inter.variable} ${plexMono.variable}`}>
-      <body>{children}</body>
+      <body className="font-sans antialiased">{children}</body>
     </html>
   );
 }

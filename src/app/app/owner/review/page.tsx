@@ -1,447 +1,194 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState } from "react";
+import { ClipboardCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { IconRail } from "@/components/dashboard/icon-rail";
+import { ProjectSwitcher } from "@/components/dashboard/project-switcher";
+import type { ProjectSummary } from "@/components/dashboard/project-switcher";
 
-interface ReviewMark {
+interface ReviewItem {
   id: string;
-  status: string;
-  photoKeys: string[];
-  comment: string | null;
+  foremanName: string;
+  floor: number;
+  stageName: string;
   createdAt: string;
-  stage: { name: string; floor: number };
-  user: { name: string };
+  comment: string | null;
+  photos: string[];
 }
 
+const PROJECTS: ProjectSummary[] = [
+  { id: "p1", name: "Паркинг 8 этажей", address: "г. Ташкент, ул. Примерная, 1", progressPct: 47, flag: "WARN" },
+  { id: "p2", name: "Sunrise Residence", address: null, progressPct: 12, flag: "OK" },
+];
+
+const REVIEW_QUEUE: ReviewItem[] = [
+  {
+    id: "r1",
+    foremanName: "Т. Абдыраев",
+    floor: 4,
+    stageName: "Монтаж лесов",
+    createdAt: "сегодня, 09:14",
+    comment: "Каркас 4-го этажа, леса установлены по периметру.",
+    photos: ["/site/scaffolding.png", "/site/columns.png", "/site/rebar.png"],
+  },
+  {
+    id: "r2",
+    foremanName: "Т. Абдыраев",
+    floor: 2,
+    stageName: "Заливка плиты",
+    createdAt: "вчера, 16:40",
+    comment: "Бетон В25, залита плита 2-го этажа.",
+    photos: ["/site/concrete-slab.png"],
+  },
+  {
+    id: "r3",
+    foremanName: "Т. Абдыраев",
+    floor: 0,
+    stageName: "Подготовка основания",
+    createdAt: "вчера, 11:20",
+    comment: null,
+    photos: ["/site/exterior.png", "/site/formwork.png"],
+  },
+];
+
 export default function OwnerReviewPage() {
-  const [marks, setMarks] = useState<ReviewMark[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [projectId, setProjectId] = useState<string>("");
-  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+  const [items, setItems] = useState<ReviewItem[]>(REVIEW_QUEUE);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchQueue = useCallback(async () => {
-    if (!projectId) return;
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `/api/stage-marks/review-queue?projectId=${projectId}`,
-      );
-      if (!res.ok) throw new Error("Не удалось загрузить очередь");
-      const data = await res.json();
-      setMarks(data.marks);
-    } catch (err) {
-      console.error("failed to fetch review queue", err);
-      setError("Ошибка загрузки");
-    } finally {
-      setLoading(false);
+  function approve(id: string) {
+    setItems((prev) => prev.filter((i) => i.id !== id));
+  }
+
+  function reject(id: string) {
+    if (!rejectReason.trim()) {
+      setRejectingId(id);
+      return;
     }
-  }, [projectId]);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("projectId");
-    if (stored) setProjectId(stored);
-  }, []);
-
-  useEffect(() => {
-    if (projectId) {
-      localStorage.setItem("projectId", projectId);
-      fetchQueue();
-    }
-  }, [projectId, fetchQueue]);
-
-  useEffect(() => {
-    async function loadPhotos() {
-      const newUrls: Record<string, string> = {};
-      for (const mark of marks) {
-        for (const key of mark.photoKeys) {
-          if (!photoUrls[key]) {
-            try {
-              const res = await fetch(
-                `/api/stage-marks/photo-url?key=${encodeURIComponent(key)}`,
-              );
-              if (res.ok) {
-                const data = await res.json();
-                newUrls[key] = data.url;
-              }
-            } catch (err) {
-              console.error("failed to fetch photo url", err);
-            }
-          }
-        }
-      }
-      if (Object.keys(newUrls).length > 0) {
-        setPhotoUrls((prev) => ({ ...prev, ...newUrls }));
-      }
-    }
-    loadPhotos();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marks]);
-
-  const handleApprove = async (markId: string) => {
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/stage-marks/${markId}/review`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "approve" }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Ошибка");
-      }
-      setMarks((prev) => prev.filter((m) => m.id !== markId));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleReject = async (markId: string) => {
-    if (!rejectReason.trim()) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/stage-marks/${markId}/review`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "reject", reason: rejectReason }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Ошибка");
-      }
-      setMarks((prev) => prev.filter((m) => m.id !== markId));
-      setRejectingId(null);
-      setRejectReason("");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка");
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    setItems((prev) => prev.filter((i) => i.id !== id));
+    setRejectingId(null);
+    setRejectReason("");
+  }
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "var(--color-bg-alt)",
-        padding: "1rem",
-        paddingBottom: "3rem",
-      }}
-    >
-      <div style={{ maxWidth: "640px", margin: "0 auto" }}>
-        <h1
-          style={{
-            fontSize: "1.25rem",
-            color: "var(--color-navy)",
-            marginBottom: "1.5rem",
-          }}
-        >
-          На проверке
-        </h1>
+    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
+      <IconRail active="acts" />
+      <ProjectSwitcher projects={PROJECTS} activeId={PROJECTS[0].id} />
 
-        <section style={{ marginBottom: "1.5rem" }}>
-          <label
-            htmlFor="project"
-            style={{
-              display: "block",
-              fontSize: "0.8125rem",
-              fontWeight: 500,
-              color: "var(--color-navy)",
-              marginBottom: "0.5rem",
-            }}
-          >
-            Проект
-          </label>
-          <select
-            id="project"
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            style={{
-              width: "100%",
-              padding: "0.625rem 0.75rem",
-              fontSize: "1rem",
-              border: "1px solid #d1d5db",
-              borderRadius: "8px",
-              outline: "none",
-              color: "var(--color-navy)",
-              background: "var(--color-bg)",
-            }}
-          >
-            <option value="">— Выбрать —</option>
-            <option value="cmrf8q5300003m25q7dkapoqb">
-              Парковка 8 этажей
-            </option>
-          </select>
-        </section>
-
-        {error && (
-          <p
-            style={{
-              fontSize: "0.875rem",
-              color: "var(--color-danger)",
-              marginBottom: "1rem",
-            }}
-          >
-            {error}
-          </p>
-        )}
-
-        {loading ? (
-          <p
-            style={{
-              fontSize: "0.875rem",
-              color: "var(--color-navy)",
-              opacity: 0.5,
-            }}
-          >
-            Загрузка...
-          </p>
-        ) : marks.length === 0 ? (
-          <p
-            style={{
-              fontSize: "0.875rem",
-              color: "var(--color-navy)",
-              opacity: 0.5,
-            }}
-          >
-            Нет отметок на проверке
-          </p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-            {marks.map((mark) => (
-              <div
-                key={mark.id}
-                style={{
-                  background: "var(--color-bg)",
-                  borderRadius: "12px",
-                  padding: "1.25rem",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                    marginBottom: "0.75rem",
-                  }}
-                >
-                  <div>
-                    <p
-                      style={{
-                        fontSize: "1rem",
-                        fontWeight: 500,
-                        color: "var(--color-navy)",
-                      }}
-                    >
-                      {mark.stage.name}
-                    </p>
-                    <p
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "var(--color-navy)",
-                        opacity: 0.5,
-                      }}
-                    >
-                      {mark.stage.floor === 0
-                        ? "Общее"
-                        : `Этаж ${mark.stage.floor}`}
-                      {" · "}
-                      {mark.user.name}
-                      {" · "}
-                      {new Date(mark.createdAt).toLocaleDateString("ru-RU")}
-                    </p>
-                  </div>
-                  <span
-                    style={{
-                      fontSize: "0.6875rem",
-                      fontWeight: 500,
-                      padding: "0.25rem 0.5rem",
-                      borderRadius: "4px",
-                      color: "#fff",
-                      background: "var(--color-gold)",
-                    }}
-                  >
-                    На проверке
-                  </span>
-                </div>
-
-                {mark.photoKeys.length > 0 && (
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: "0.5rem",
-                      marginBottom: "0.75rem",
-                      overflowX: "auto",
-                    }}
-                  >
-                    {mark.photoKeys.map((key) => (
-                      <div
-                        key={key}
-                        style={{
-                          width: "80px",
-                          height: "80px",
-                          borderRadius: "8px",
-                          background: "var(--color-bg-alt)",
-                          flexShrink: 0,
-                          overflow: "hidden",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                        }}
-                      >
-                        {photoUrls[key] ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={photoUrls[key]}
-                            alt="Фото"
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                            }}
-                          />
-                        ) : (
-                          <span
-                            style={{
-                              fontSize: "0.75rem",
-                              color: "var(--color-navy)",
-                              opacity: 0.4,
-                            }}
-                          >
-                            ...
-                          </span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {mark.comment && (
-                  <p
-                    style={{
-                      fontSize: "0.875rem",
-                      color: "var(--color-navy)",
-                      opacity: 0.7,
-                      marginBottom: "0.75rem",
-                    }}
-                  >
-                    {mark.comment}
-                  </p>
-                )}
-
-                {rejectingId === mark.id ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                    <textarea
-                      value={rejectReason}
-                      onChange={(e) => setRejectReason(e.target.value)}
-                      rows={2}
-                      placeholder="Причина отклонения..."
-                      style={{
-                        width: "100%",
-                        padding: "0.5rem 0.75rem",
-                        fontSize: "0.875rem",
-                        border: "1px solid #d1d5db",
-                        borderRadius: "8px",
-                        outline: "none",
-                        resize: "vertical",
-                        fontFamily: "inherit",
-                      }}
-                    />
-                    <div style={{ display: "flex", gap: "0.5rem" }}>
-                      <button
-                        onClick={() => handleReject(mark.id)}
-                        disabled={!rejectReason.trim() || submitting}
-                        style={{
-                          flex: 1,
-                          padding: "0.625rem 1rem",
-                          fontSize: "0.875rem",
-                          fontWeight: 500,
-                          color: "#fff",
-                          background: "var(--color-danger)",
-                          border: "none",
-                          borderRadius: "8px",
-                          cursor:
-                            rejectReason.trim() && !submitting
-                              ? "pointer"
-                              : "not-allowed",
-                          opacity: rejectReason.trim() && !submitting ? 1 : 0.5,
-                        }}
-                      >
-                        Подтвердить отклонение
-                      </button>
-                      <button
-                        onClick={() => {
-                          setRejectingId(null);
-                          setRejectReason("");
-                        }}
-                        disabled={submitting}
-                        style={{
-                          padding: "0.625rem 1rem",
-                          fontSize: "0.875rem",
-                          fontWeight: 500,
-                          color: "var(--color-navy)",
-                          background: "var(--color-bg-alt)",
-                          border: "none",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Отмена
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", gap: "0.5rem" }}>
-                    <button
-                      onClick={() => handleApprove(mark.id)}
-                      disabled={submitting}
-                      style={{
-                        flex: 1,
-                        padding: "0.625rem 1rem",
-                        fontSize: "0.875rem",
-                        fontWeight: 500,
-                        color: "#fff",
-                        background: "var(--color-teal)",
-                        border: "none",
-                        borderRadius: "8px",
-                        cursor: submitting ? "not-allowed" : "pointer",
-                        opacity: submitting ? 0.5 : 1,
-                      }}
-                    >
-                      Принять
-                    </button>
-                    <button
-                      onClick={() => setRejectingId(mark.id)}
-                      disabled={submitting}
-                      style={{
-                        flex: 1,
-                        padding: "0.625rem 1rem",
-                        fontSize: "0.875rem",
-                        fontWeight: 500,
-                        color: "var(--color-danger)",
-                        background: "var(--color-bg-alt)",
-                        border: "1px solid var(--color-danger)",
-                        borderRadius: "8px",
-                        cursor: submitting ? "not-allowed" : "pointer",
-                        opacity: submitting ? 0.5 : 1,
-                      }}
-                    >
-                      Отклонить
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center justify-between border-b border-border bg-panel px-5 py-3">
+          <div className="flex items-center gap-3">
+            <ClipboardCheck className="h-5 w-5 text-teal" aria-hidden />
+            <h1 className="text-base font-semibold text-foreground">На проверке</h1>
+            {items.length > 0 && (
+              <span className="rounded-full bg-gold px-2 py-0.5 text-xs font-medium text-white">
+                {items.length}
+              </span>
+            )}
           </div>
-        )}
+        </header>
+
+        <main className="flex-1 overflow-y-auto bg-secondary p-4 lg:p-5">
+          <div className="mx-auto max-w-[900px]">
+            {items.length === 0 ? (
+              <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-border bg-panel">
+                <p className="text-lg font-medium text-foreground">Нет этапов на проверке</p>
+                <p className="text-sm text-muted-foreground">Все акты обработаны</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {items.map((item) => {
+                  const isRejecting = rejectingId === item.id;
+                  return (
+                    <article
+                      key={item.id}
+                      className="rounded-lg border border-border bg-panel p-4"
+                    >
+                      <div className="flex flex-col gap-4 lg:flex-row">
+                        {/* Photos */}
+                        <div className="shrink-0">
+                          <div className="relative h-[200px] w-full overflow-hidden rounded-md border border-border bg-secondary lg:w-[280px]">
+                            <img
+                              src={item.photos[0]}
+                              alt={`Фото: ${item.stageName}`}
+                              className="h-full w-full object-cover"
+                            />
+                            {item.photos.length > 1 && (
+                              <div className="absolute bottom-2 right-2 rounded bg-navy/70 px-1.5 py-0.5 text-[10px] text-white">
+                                +{item.photos.length - 1}
+                              </div>
+                            )}
+                          </div>
+                          {item.photos.length > 1 && (
+                            <div className="mt-2 flex gap-2">
+                              {item.photos.slice(1).map((p, idx) => (
+                                <img
+                                  key={idx}
+                                  src={p}
+                                  alt=""
+                                  className="h-12 w-12 rounded border border-border object-cover"
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Details */}
+                        <div className="flex min-w-0 flex-1 flex-col">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                              <h2 className="text-base font-semibold text-foreground">{item.stageName}</h2>
+                              <p className="text-sm text-muted-foreground">
+                                {item.floor === 0 ? "Общее" : `Этаж ${item.floor}`} · {item.foremanName} ·{" "}
+                                {item.createdAt}
+                              </p>
+                            </div>
+                          </div>
+
+                          {item.comment && (
+                            <p className="mt-3 rounded-md bg-secondary p-3 text-sm text-foreground">
+                              {item.comment}
+                            </p>
+                          )}
+
+                          <div className="mt-auto flex flex-wrap items-center gap-3 pt-4">
+                            <Button variant="teal" onClick={() => approve(item.id)}>
+                              Принять
+                            </Button>
+                            <Button
+                              variant="danger"
+                              onClick={() =>
+                                isRejecting ? reject(item.id) : setRejectingId(item.id)
+                              }
+                            >
+                              {isRejecting ? "Подтвердить отклонение" : "Отклонить"}
+                            </Button>
+
+                            {isRejecting && (
+                              <input
+                                autoFocus
+                                value={rejectReason}
+                                onChange={(e) => setRejectReason(e.target.value)}
+                                placeholder="Причина отклонения"
+                                className={cn(
+                                  "flex-1 rounded-md border px-3 py-2 text-sm outline-none focus:border-ring",
+                                  rejectReason.trim() ? "border-input" : "border-danger",
+                                )}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </main>
       </div>
-    </main>
+    </div>
   );
 }

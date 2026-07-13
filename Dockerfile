@@ -16,6 +16,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 RUN npx prisma generate
 RUN npm run build
+RUN npx esbuild scripts/seed.ts --bundle --platform=node --format=cjs --outfile=scripts/seed.js --external:@prisma/client
 
 # --- Runner ---
 FROM base AS runner
@@ -36,6 +37,7 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/node_modules/.bin ./node_modules/.bin
+COPY --from=builder /app/scripts/seed.js ./scripts/seed.js
 
 RUN chown -R nextjs:nodejs /app /home/nextjs
 

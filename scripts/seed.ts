@@ -23,7 +23,7 @@ async function main() {
   // --- Users ---
   const admin = await prisma.user.create({
     data: {
-      phone: "+996700000001",
+      phone: "+998501234561",
       name: "Администратор",
       passwordHash: hashPassword(adminPassword),
       role: Role.ADMIN,
@@ -32,7 +32,7 @@ async function main() {
 
   const owner = await prisma.user.create({
     data: {
-      phone: "+9981232354",
+      phone: "+998501234567",
       name: "Заказчик",
       passwordHash: hashPassword(ownerPassword),
       role: Role.OWNER,
@@ -41,7 +41,7 @@ async function main() {
 
   const foreman = await prisma.user.create({
     data: {
-      phone: "+996700000003",
+      phone: "+998501234563",
       name: "Прораб",
       passwordHash: hashPassword(foremanPassword),
       role: Role.FOREMAN,

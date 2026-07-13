@@ -1,6 +1,5 @@
 const COUNTRY_FORMATS: { code: string; groups: number[] }[] = [
   { code: "+998", groups: [2, 3, 2, 2] },
-  { code: "+996", groups: [3, 3, 3] },
   { code: "+7", groups: [3, 3, 2, 2] },
   { code: "+1", groups: [3, 3, 4] },
 ];

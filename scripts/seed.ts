@@ -20,6 +20,16 @@ async function main() {
     );
   }
 
+  // --- Clean up existing data (safe re-run) ---
+  await prisma.eventLog.deleteMany();
+  await prisma.stageMark.deleteMany();
+  await prisma.expense.deleteMany();
+  await prisma.stage.deleteMany();
+  await prisma.budgetLine.deleteMany();
+  await prisma.projectMember.deleteMany();
+  await prisma.project.deleteMany();
+  await prisma.user.deleteMany();
+
   // --- Users ---
   const admin = await prisma.user.create({
     data: {

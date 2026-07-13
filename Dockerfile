@@ -35,7 +35,11 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
-COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+
+# Recreate the CLI symlink instead of copying the dereferenced target file,
+# so the Prisma CLI resolves its WASM assets from node_modules/prisma/build.
+RUN mkdir -p ./node_modules/.bin \
+    && ln -sf ../prisma/build/index.js ./node_modules/.bin/prisma
 
 RUN chown -R nextjs:nodejs /app /home/nextjs
 

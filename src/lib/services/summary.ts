@@ -125,6 +125,15 @@ const ACTION_LABELS: Record<string, string> = {
   MARK_APPROVED: "Этап принят",
   MARK_REJECTED: "Этап отклонён",
   EXPENSE_CREATED: "Добавлен расход",
+  DOWNTIME_REPORTED: "Простой",
+};
+
+const DOWNTIME_REASON_LABELS: Record<string, string> = {
+  NO_MATERIALS: "Простой: нет материалов",
+  WEATHER: "Простой: погода",
+  AWAITING_OWNER_DECISION: "Простой: ждём решения владельца",
+  AWAITING_INSPECTION: "Простой: ждём инспекцию",
+  OTHER: "Простой: другое",
 };
 
 export interface ProjectEvent {
@@ -140,21 +149,46 @@ export interface ProjectEvent {
 export async function getProjectEvents(
   projectId: string,
   limit: number,
+  filters?: { actions?: string[]; from?: Date; to?: Date },
 ): Promise<ProjectEvent[]> {
+  const where: Record<string, unknown> = { projectId };
+  if (filters?.actions && filters.actions.length > 0) {
+    where.action = { in: filters.actions };
+  }
+  if (filters?.from || filters?.to) {
+    const createdAtFilter: Record<string, Date> = {};
+    if (filters?.from) createdAtFilter.gte = filters.from;
+    if (filters?.to) createdAtFilter.lte = filters.to;
+    where.createdAt = createdAtFilter;
+  }
+
   const logs = await prisma.eventLog.findMany({
-    where: { projectId },
+    where,
     include: { user: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
     take: limit,
   });
 
-  return logs.map((log) => ({
-    id: log.id,
-    action: log.action,
-    actionLabel: ACTION_LABELS[log.action] ?? log.action,
-    entity: log.entity,
-    entityId: log.entityId,
-    userName: log.user.name,
-    createdAt: log.createdAt.toISOString(),
-  }));
+  return logs.map((log) => {
+    let actionLabel = ACTION_LABELS[log.action] ?? log.action;
+
+    if (log.action === "DOWNTIME_REPORTED" && log.metadata) {
+      const meta = log.metadata as { reason?: string; comment?: string };
+      if (meta.reason === "OTHER" && meta.comment) {
+        actionLabel = `Простой: ${meta.comment}`;
+      } else if (meta.reason && DOWNTIME_REASON_LABELS[meta.reason]) {
+        actionLabel = DOWNTIME_REASON_LABELS[meta.reason];
+      }
+    }
+
+    return {
+      id: log.id,
+      action: log.action,
+      actionLabel,
+      entity: log.entity,
+      entityId: log.entityId,
+      userName: log.user.name,
+      createdAt: log.createdAt.toISOString(),
+    };
+  });
 }

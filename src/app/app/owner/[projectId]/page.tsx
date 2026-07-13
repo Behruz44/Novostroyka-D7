@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 
 interface FloorProgress {
@@ -27,15 +26,6 @@ interface ProjectEvent {
   actionLabel: string;
   userName: string;
   createdAt: string;
-}
-
-interface ProjectListItem {
-  id: string;
-  name: string;
-  address: string | null;
-  progressPct: number;
-  moneyPct: number | null;
-  flag: "OK" | "WARN" | "DANGER" | "UNKNOWN";
 }
 
 function formatMinor(minor: string): string {
@@ -100,7 +90,6 @@ export default function OwnerDashboardPage() {
   const projectId = params.projectId as string;
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
   const [events, setEvents] = useState<ProjectEvent[]>([]);
-  const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchDashboard = useCallback(async () => {
@@ -123,22 +112,14 @@ export default function OwnerDashboardPage() {
   }, [projectId]);
 
   useEffect(() => {
-    fetch("/api/projects")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.projects) setProjects(data.projects);
-      })
-      .catch((err) => console.error("failed to fetch /api/projects", err));
-  }, []);
-
-  useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
 
   return (
     <main
       style={{
-        minHeight: "100vh",
+        flex: 1,
+        overflowY: "auto",
         background: "var(--color-bg-alt)",
         padding: "1rem",
         paddingBottom: "3rem",
@@ -154,111 +135,6 @@ export default function OwnerDashboardPage() {
         >
           Кабинет заказчика
         </h1>
-
-        {/* Project switcher sidebar */}
-        {projects.length > 0 && (
-          <div style={{ marginBottom: "1.5rem" }}>
-            <h2
-              style={{
-                fontSize: "0.75rem",
-                color: "var(--color-navy)",
-                opacity: 0.5,
-                marginBottom: "0.5rem",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-              }}
-            >
-              Мои объекты
-            </h2>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.5rem",
-              }}
-            >
-              {projects.map((p) => {
-                const isActive = p.id === projectId;
-                return (
-                  <Link
-                    key={p.id}
-                    href={`/app/owner/${p.id}`}
-                    style={{
-                      display: "block",
-                      textDecoration: "none",
-                      background: isActive
-                        ? "var(--color-bg)"
-                        : "transparent",
-                      border: isActive
-                        ? "2px solid var(--color-teal)"
-                        : "2px solid transparent",
-                      borderRadius: "10px",
-                      padding: "0.625rem 0.875rem",
-                      transition: "all 0.15s",
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginBottom: "0.25rem",
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: "0.875rem",
-                          fontWeight: 500,
-                          color: "var(--color-navy)",
-                        }}
-                      >
-                        {p.name}
-                      </span>
-                      <span
-                        style={{
-                          width: "8px",
-                          height: "8px",
-                          borderRadius: "50%",
-                          background: flagColors[p.flag]?.dot ?? "#9ca3af",
-                          flexShrink: 0,
-                        }}
-                      />
-                    </div>
-                    {p.address && (
-                      <p
-                        style={{
-                          fontSize: "0.6875rem",
-                          color: "var(--color-navy)",
-                          opacity: 0.5,
-                          marginBottom: "0.375rem",
-                        }}
-                      >
-                        {p.address}
-                      </p>
-                    )}
-                    <div
-                      style={{
-                        height: "4px",
-                        background: "var(--color-bg-alt)",
-                        borderRadius: "2px",
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: `${p.progressPct}%`,
-                          height: "100%",
-                          background: "var(--color-teal)",
-                          borderRadius: "2px",
-                        }}
-                      />
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {loading ? (
           <p style={{ color: "var(--color-navy)", opacity: 0.5 }}>

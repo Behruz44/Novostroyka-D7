@@ -1,9 +1,17 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Camera, Upload, X, Check } from "lucide-react";
+import { Camera, Upload, X, Check, PauseCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+const DOWNTIME_REASONS = [
+  { value: "NO_MATERIALS", label: "Нет материалов" },
+  { value: "WEATHER", label: "Погода" },
+  { value: "AWAITING_OWNER_DECISION", label: "Ждём решения владельца" },
+  { value: "AWAITING_INSPECTION", label: "Ждём инспекцию" },
+  { value: "OTHER", label: "Другое" },
+] as const;
 
 // Mock data — realistic construction stages for a parking project
 const FLOORS = [0, 1, 2, 3, 4, 5];
@@ -86,6 +94,12 @@ export default function ForemanMarkPage() {
   const [comment, setComment] = useState("");
   const [uploads, setUploads] = useState<FileUpload[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [showDowntime, setShowDowntime] = useState(false);
+  const [downtimeReason, setDowntimeReason] = useState<string>("");
+  const [downtimeComment, setDowntimeComment] = useState("");
+  const [downtimeSubmitting, setDowntimeSubmitting] = useState(false);
+  const [downtimeError, setDowntimeError] = useState<string | null>(null);
+  const [downtimeSuccess, setDowntimeSuccess] = useState<string | null>(null);
 
   const stagesForFloor = useMemo(() => {
     if (selectedFloor === "") return [];
@@ -264,10 +278,154 @@ export default function ForemanMarkPage() {
             />
           </section>
 
-          <Button type="submit" variant="teal" size="lg" disabled={!canSubmit} className="w-full">
-            {submitting ? "Отправка..." : "Отправить на проверку"}
-          </Button>
+          <div className="flex gap-3">
+            <Button type="submit" variant="teal" size="lg" disabled={!canSubmit} className="flex-1">
+              {submitting ? "Отправка..." : "Отправить на проверку"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              onClick={() => setShowDowntime((v) => !v)}
+              className="shrink-0"
+            >
+              <PauseCircle className="h-4 w-4" aria-hidden />
+              Простой
+            </Button>
+          </div>
         </form>
+
+        {/* Downtime form */}
+        {showDowntime && (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!downtimeReason || downtimeSubmitting) return;
+              if (downtimeReason === "OTHER" && !downtimeComment.trim()) {
+                setDowntimeError("Укажите причину в комментарии");
+                return;
+              }
+              setDowntimeSubmitting(true);
+              setDowntimeError(null);
+              setDowntimeSuccess(null);
+              try {
+                const res = await fetch("/api/downtime", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    projectId: "p1",
+                    stageId: selectedStageId || null,
+                    reason: downtimeReason,
+                    comment: downtimeComment || undefined,
+                    clientRequestId: crypto.randomUUID(),
+                  }),
+                });
+                if (!res.ok) {
+                  const data = await res.json();
+                  throw new Error(data.error || "Не удалось отправить");
+                }
+                setDowntimeSuccess("Простой зафиксирован");
+                setDowntimeReason("");
+                setDowntimeComment("");
+                setShowDowntime(false);
+              } catch (err) {
+                setDowntimeError(err instanceof Error ? err.message : "Ошибка");
+              } finally {
+                setDowntimeSubmitting(false);
+              }
+            }}
+            className="space-y-4 rounded-lg border border-gold/30 bg-gold/5 p-4"
+          >
+            <h2 className="flex items-center gap-2 text-base font-semibold text-foreground">
+              <PauseCircle className="h-4 w-4 text-gold" aria-hidden />
+              Зафиксировать простой
+            </h2>
+
+            <div>
+              <label htmlFor="downtime-reason" className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Причина
+              </label>
+              <select
+                id="downtime-reason"
+                value={downtimeReason}
+                onChange={(e) => setDowntimeReason(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
+              >
+                <option value="">— Выберите причину —</option>
+                {DOWNTIME_REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {downtimeReason === "OTHER" && (
+              <div>
+                <label htmlFor="downtime-comment" className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Комментарий (обязательно)
+                </label>
+                <textarea
+                  id="downtime-comment"
+                  value={downtimeComment}
+                  onChange={(e) => setDowntimeComment(e.target.value)}
+                  rows={2}
+                  placeholder="Опишите причину простоя..."
+                  className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
+                />
+              </div>
+            )}
+
+            {downtimeReason && downtimeReason !== "OTHER" && (
+              <div>
+                <label htmlFor="downtime-comment-opt" className="mb-2 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Комментарий (необязательно)
+                </label>
+                <textarea
+                  id="downtime-comment-opt"
+                  value={downtimeComment}
+                  onChange={(e) => setDowntimeComment(e.target.value)}
+                  rows={2}
+                  placeholder="Дополнительно..."
+                  className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none focus:border-ring"
+                />
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              {selectedStageId
+                ? "Простой будет привязан к выбранному этапу"
+                : "Простой по всей площадке (этап не выбран)"}
+            </p>
+
+            {downtimeError && (
+              <p className="text-sm text-danger">{downtimeError}</p>
+            )}
+            {downtimeSuccess && (
+              <p className="text-sm text-teal">{downtimeSuccess}</p>
+            )}
+
+            <div className="flex gap-3">
+              <Button
+                type="submit"
+                variant="danger"
+                size="lg"
+                disabled={!downtimeReason || downtimeSubmitting}
+                className="flex-1"
+              >
+                {downtimeSubmitting ? "Отправка..." : "Зафиксировать"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="lg"
+                onClick={() => setShowDowntime(false)}
+              >
+                Отмена
+              </Button>
+            </div>
+          </form>
+        )}
 
         {/* Previous marks */}
         <section className="mt-8">

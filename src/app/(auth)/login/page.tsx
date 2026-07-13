@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { formatPhone, normalizePhone } from "@/lib/phone";
 
 function LoginForm() {
   const router = useRouter();
@@ -20,7 +21,7 @@ function LoginForm() {
     setLoading(true);
 
     const result = await signIn("credentials", {
-      phone,
+      phone: normalizePhone(phone),
       password,
       redirect: false,
     });
@@ -97,8 +98,8 @@ function LoginForm() {
               id="phone"
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+996700000000"
+              onChange={(e) => setPhone(formatPhone(e.target.value))}
+              placeholder="+998 12 345 67 89"
               required
               autoComplete="tel"
               style={{

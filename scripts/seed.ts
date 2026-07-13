@@ -32,7 +32,7 @@ async function main() {
 
   const owner = await prisma.user.create({
     data: {
-      phone: "+996700000002",
+      phone: "+9981232354",
       name: "Заказчик",
       passwordHash: hashPassword(ownerPassword),
       role: Role.OWNER,
@@ -68,7 +68,7 @@ async function main() {
   const project = await prisma.project.create({
     data: {
       name: "Паркинг 8 этажей",
-      address: "г. Бишкек, ул. Примерная, 1",
+      address: "г. Ташкент, ул. Примерная, 1",
       totalBudgetMinor,
     },
   });

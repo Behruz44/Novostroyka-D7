@@ -52,7 +52,9 @@ export default function OwnerLayout({
           ? "reports"
           : pathname.startsWith(`${basePath}/ask`)
             ? "ask"
-            : "overview";
+            : pathname.startsWith(`${basePath}/account`)
+              ? "account"
+              : "overview";
 
   const sectionPath =
     activeSection === "review"
@@ -63,7 +65,9 @@ export default function OwnerLayout({
           ? "/reports"
           : activeSection === "ask"
             ? "/ask"
-            : "";
+            : activeSection === "account"
+              ? "/account"
+              : "";
 
   const navItems: IconRailNavItem[] = [
     { id: "overview", label: "Обзор", icon: LayoutGrid, href: basePath },
@@ -82,6 +86,7 @@ export default function OwnerLayout({
         brandLetter="С"
         userInitial="В"
         userLabel="Аккаунт"
+        userHref={`${basePath}/account`}
       />
 
       {/* Project switcher */}

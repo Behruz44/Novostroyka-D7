@@ -19,12 +19,13 @@ export interface PhotoChatResult {
   photos: PhotoWithMeta[];
 }
 
-interface DateRange {
-  from: string;
-  to: string;
+interface IntentResult {
+  isPhotoQuestion: boolean;
+  from?: string;
+  to?: string;
 }
 
-async function extractDateRange(question: string): Promise<DateRange> {
+async function analyzeIntent(question: string): Promise<IntentResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error("ANTHROPIC_API_KEY не настроен");
 
@@ -48,7 +49,7 @@ async function extractDateRange(question: string): Promise<DateRange> {
         messages: [
           {
             role: "user",
-            content: `Извлеки диапазон дат из вопроса пользователя. Сегодня ${today}. Ответь ТОЛЬКО JSON {"from":"YYYY-MM-DD","to":"YYYY-MM-DD"}, без пояснений. Если вопрос без явной даты — верни последние 3 дня от сегодня.\n\nВопрос: ${question}`,
+            content: `Ты — классификатор вопросов для строительного приложения. Сегодня ${today}.\n\nОпредели, относится ли вопрос к истории стройплощадки (фото, этапы, ход работ, техника, рабочие, конкретные даты/периоды на объекте).\n\nОтветь ТОЛЬКО JSON без пояснений:\n{"isPhotoQuestion": true/false, "from": "YYYY-MM-DD", "to": "YYYY-MM-DD"}\n\nПравила:\n- isPhotoQuestion=true если вопрос про фото/ход строительства/этапы/работы на площадке\n- isPhotoQuestion=false если вопрос про создание нового объекта, бюджет, документы, общие вопросы, не связанные с конкретной стройплощадкой\n- from/to — диапазон дат. Если вопрос без явной даты — последние 3 дня от сегодня\n\nВопрос: ${question}`,
           },
         ],
       }),
@@ -57,50 +58,103 @@ async function extractDateRange(question: string): Promise<DateRange> {
   } catch (err) {
     clearTimeout(timeout);
     if (err instanceof Error && err.name === "AbortError") {
-      throw new Error("Истекло время ожидания при определении дат.");
+      throw new Error("Истекло время ожидания при анализе вопроса.");
     }
-    throw new Error("ИИ недоступен для определения дат.");
+    throw new Error("ИИ недоступен для анализа вопроса.");
   }
   clearTimeout(timeout);
 
   if (!response.ok) {
     const errBody = await response.text().catch(() => "");
     console.error(
-      `[photo-chat] date extraction error ${response.status}: ${errBody.slice(0, 200)}`,
+      `[photo-chat] intent analysis error ${response.status}: ${errBody.slice(0, 200)}`,
     );
-    throw new Error("Ошибка ИИ при определении дат.");
+    throw new Error("Ошибка ИИ при анализе вопроса.");
   }
 
   const data = await response.json();
   const text: string =
     data.content?.map((c: { text?: string }) => c.text).join("") ?? "";
 
-  let parsed: DateRange;
+  let parsed: IntentResult;
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     const raw = jsonMatch ? jsonMatch[0] : text;
     parsed = JSON.parse(raw);
   } catch {
-    const now = new Date();
-    const from = new Date(now);
-    from.setDate(from.getDate() - 3);
-    return {
-      from: from.toISOString().slice(0, 10),
-      to: now.toISOString().slice(0, 10),
-    };
+    return { isPhotoQuestion: true, from: fallbackFrom(), to: fallbackTo() };
   }
 
-  if (!parsed.from || !parsed.to || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.from) || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.to)) {
-    const now = new Date();
-    const from = new Date(now);
-    from.setDate(from.getDate() - 3);
-    return {
-      from: from.toISOString().slice(0, 10),
-      to: now.toISOString().slice(0, 10),
-    };
+  if (typeof parsed.isPhotoQuestion !== "boolean") {
+    return { isPhotoQuestion: true, from: fallbackFrom(), to: fallbackTo() };
+  }
+
+  if (parsed.isPhotoQuestion) {
+    if (!parsed.from || !parsed.to || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.from) || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.to)) {
+      return { isPhotoQuestion: true, from: fallbackFrom(), to: fallbackTo() };
+    }
   }
 
   return parsed;
+}
+
+function fallbackFrom(): string {
+  const now = new Date();
+  const from = new Date(now);
+  from.setDate(from.getDate() - 3);
+  return from.toISOString().slice(0, 10);
+}
+
+function fallbackTo(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function answerNonPhotoQuestion(question: string): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY не настроен");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+
+  let response: Response;
+  try {
+    response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 512,
+        messages: [
+          {
+            role: "user",
+            content: `Ты — помощник в строительном приложении «СтройКонтроль». Пользователь (заказчик) написал сообщение, которое не относится к фото-архиву стройплощадки.\n\nКоротко и вежливо ответь на русском. Если пользователь хочет создать новый объект — направь в раздел «+ Новый». Если вопрос не по теме приложения — скажи это честно.\n\nСообщение пользователя: ${question}`,
+          },
+        ],
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeout);
+    if (err instanceof Error && err.name === "AbortError") {
+      return "Истекло время ожидания. Попробуйте переформулировать вопрос.";
+    }
+    return "ИИ недоступен. Попробуйте позже.";
+  }
+  clearTimeout(timeout);
+
+  if (!response.ok) {
+    return "Не удалось обработать вопрос. Попробуйте позже.";
+  }
+
+  const data = await response.json();
+  const text: string =
+    data.content?.map((c: { text?: string }) => c.text).join("") ?? "";
+
+  return text || "Не удалось обработать вопрос.";
 }
 
 async function downloadPhotoAsBase64(key: string): Promise<{ base64: string; mediaType: string } | null> {
@@ -147,10 +201,17 @@ export async function answerPhotoQuestion(
     throw new Error("ANTHROPIC_API_KEY не настроен на сервере");
   }
 
-  const { from, to } = await extractDateRange(question);
+  const intent = await analyzeIntent(question);
 
-  const fromDate = new Date(from + "T00:00:00.000Z");
-  const toDate = new Date(to + "T23:59:59.999Z");
+  if (!intent.isPhotoQuestion) {
+    const reply = await answerNonPhotoQuestion(question);
+    return { reply, photos: [] };
+  }
+
+  const { from, to } = intent;
+
+  const fromDate = new Date(from! + "T00:00:00.000Z");
+  const toDate = new Date(to! + "T23:59:59.999Z");
 
   const marks = await prisma.stageMark.findMany({
     where: {

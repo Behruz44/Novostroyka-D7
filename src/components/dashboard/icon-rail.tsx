@@ -26,7 +26,7 @@ export function IconRail({
   brandLetter = "С",
   userInitial = "В",
   userLabel = "Аккаунт",
-  userHref = "/app/owner/account",
+  userHref,
   newProjectHref = "/app/owner/new",
   onNavigate,
 }: IconRailProps) {

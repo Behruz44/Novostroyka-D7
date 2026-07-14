@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { MessageCircle, Send, ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -14,13 +14,16 @@ interface ChatMessage {
     floor: number;
     createdAt: string;
   }>;
+  isTyping?: boolean;
+  photosVisible?: boolean;
 }
 
-function PhotoThumbnail({ photoKey }: { photoKey: string }) {
+function PhotoThumbnail({ photoKey, visible }: { photoKey: string; visible: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
   const [errored, setErrored] = useState(false);
 
   useEffect(() => {
+    if (!visible) return;
     let cancelled = false;
     fetch(`/api/stage-marks/photo-url?key=${encodeURIComponent(photoKey)}`)
       .then((r) => r.json())
@@ -29,11 +32,13 @@ function PhotoThumbnail({ photoKey }: { photoKey: string }) {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [photoKey]);
+  }, [photoKey, visible]);
+
+  if (!visible) return null;
 
   if (errored || !url) {
     return (
-      <div className="flex h-16 w-16 items-center justify-center rounded-md border border-border bg-secondary">
+      <div className="flex h-16 w-16 items-center justify-center rounded-md border border-border bg-secondary animate-fade-in">
         <ImageIcon className="h-5 w-5 text-muted-foreground/40" />
       </div>
     );
@@ -43,11 +48,28 @@ function PhotoThumbnail({ photoKey }: { photoKey: string }) {
     <img
       src={url}
       alt="Фото стройплощадки"
-      className="h-16 w-16 rounded-md border border-border object-cover"
+      className="h-16 w-16 rounded-md border border-border object-cover animate-fade-in"
       onError={() => setErrored(true)}
     />
   );
 }
+
+function TypingDots() {
+  return (
+    <div className="flex items-center gap-1.5 px-1 py-1">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="h-2 w-2 rounded-full bg-muted-foreground/60 animate-typing-dot"
+          style={{ animationDelay: `${i * 0.18}s` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+const CHARS_PER_FRAME = 2;
+const FRAME_INTERVAL_MS = 50;
 
 export default function PhotoChatPage() {
   const params = useParams();
@@ -57,10 +79,48 @@ export default function PhotoChatPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearInterval(typingTimerRef.current);
+    };
+  }, []);
+
+  const startTypingAnimation = useCallback((msgIndex: number, fullText: string, hasPhotos: boolean) => {
+    if (typingTimerRef.current) clearInterval(typingTimerRef.current);
+
+    let charCount = 0;
+    typingTimerRef.current = setInterval(() => {
+      charCount += CHARS_PER_FRAME;
+      const partial = fullText.slice(0, charCount);
+      const isDone = charCount >= fullText.length;
+
+      setMessages((prev) => {
+        const next = [...prev];
+        if (next[msgIndex]) {
+          next[msgIndex] = {
+            ...next[msgIndex],
+            content: partial,
+            isTyping: !isDone,
+            photosVisible: isDone && hasPhotos,
+          };
+        }
+        return next;
+      });
+
+      if (isDone) {
+        if (typingTimerRef.current) {
+          clearInterval(typingTimerRef.current);
+          typingTimerRef.current = null;
+        }
+      }
+    }, FRAME_INTERVAL_MS);
+  }, []);
 
   async function sendQuestion() {
     if (!input.trim() || loading) return;
@@ -84,12 +144,18 @@ export default function PhotoChatPage() {
         return;
       }
 
+      const photos = data.photos || [];
       const assistantMsg: ChatMessage = {
         role: "assistant",
-        content: data.reply,
-        photos: data.photos || [],
+        content: "",
+        photos: photos.length > 0 ? photos : undefined,
+        isTyping: true,
+        photosVisible: false,
       };
       setMessages((prev) => [...prev, assistantMsg]);
+
+      const msgIndex = messages.length + 1;
+      startTypingAnimation(msgIndex, data.reply, photos.length > 0);
     } catch {
       setError("Сетевая ошибка при обращении к ИИ");
     } finally {
@@ -156,12 +222,17 @@ export default function PhotoChatPage() {
                     )}
                   >
                     {msg.content}
+                    {msg.isTyping && (
+                      <span className="inline-flex items-center ml-1 align-middle">
+                        <span className="inline-block w-0.5 h-4 bg-teal animate-blink-cursor" />
+                      </span>
+                    )}
                   </div>
                   {msg.photos && msg.photos.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {msg.photos.map((photo, idx) => (
                         <div key={idx} className="flex flex-col items-center gap-1">
-                          <PhotoThumbnail photoKey={photo.photoKey} />
+                          <PhotoThumbnail photoKey={photo.photoKey} visible={msg.photosVisible ?? false} />
                           <span className="text-[10px] text-muted-foreground">
                             {photo.floor === 0 ? "Общее" : `${photo.floor} эт.`}
                           </span>
@@ -175,8 +246,8 @@ export default function PhotoChatPage() {
 
             {loading && (
               <div className="flex justify-start">
-                <div className="rounded-lg bg-panel border border-border px-4 py-3 text-sm text-muted-foreground">
-                  ИИ анализирует фото...
+                <div className="rounded-lg bg-panel border border-border px-4 py-3">
+                  <TypingDots />
                 </div>
               </div>
             )}

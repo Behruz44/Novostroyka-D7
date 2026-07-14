@@ -7,11 +7,11 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const endpoint = process.env.S3_ENDPOINT;
-const region = process.env.S3_REGION || "us-east-1";
-const accessKeyId = process.env.S3_ACCESS_KEY_ID;
-const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
-const bucket = process.env.S3_BUCKET_NAME || "stroycontrol";
+const endpoint = process.env.S3_ENDPOINT?.trim();
+const region = (process.env.S3_REGION || "us-east-1").trim();
+const accessKeyId = process.env.S3_ACCESS_KEY_ID?.trim();
+const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY?.trim();
+const bucket = (process.env.S3_BUCKET_NAME || "stroycontrol").trim();
 
 export const s3Client = new S3Client({
   region,

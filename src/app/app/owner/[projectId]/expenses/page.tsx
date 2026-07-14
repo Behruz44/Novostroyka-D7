@@ -379,7 +379,7 @@ export default function OwnerExpensesPage() {
                         expenses.map((e) => (
                           <tr key={e.id} className="hover:bg-muted/50">
                             <td className="px-4 py-3 font-mono text-xs tabular-nums">
-                              {e.expenseDate}
+                              {new Date(e.expenseDate).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                             </td>
                             <td className="px-4 py-3 text-foreground">
                               {e.budgetLine?.category ?? "—"}

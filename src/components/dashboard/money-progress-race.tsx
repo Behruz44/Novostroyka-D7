@@ -32,12 +32,13 @@ export function MoneyProgressRace({
   const gapColor = gap > 15 ? "#c0392b" : gap > 8 ? "#b07c1f" : "#0e7a6c";
 
   const W = 600;
-  const H = 120;
+  const H = 130;
   const PAD = 16;
   const trackW = W - PAD * 2 - 60;
   const trackH = 18;
   const trackGap = 14;
-  const y1 = 30;
+  const GAP_AREA_H = 22;
+  const y1 = GAP_AREA_H + 12;
   const y2 = y1 + trackH + trackGap;
 
   const progressX = PAD + (trackW * progress) / 100;
@@ -100,11 +101,11 @@ export function MoneyProgressRace({
         <circle cx={moneyX + 8} cy={y2 + trackH / 2} r={6} fill="#b07c1f" />
         <circle cx={moneyX + 8} cy={y2 + trackH / 2} r={3.5} fill="none" stroke="#fff" strokeWidth={1} />
 
-        {/* Track labels */}
-        <text x={PAD} y={y1 - 6} fontSize={11} fill="#16324a" opacity={0.7} fontFamily="Inter, sans-serif">
+        {/* Track labels — right-aligned to avoid overlap with gap bracket */}
+        <text x={W - PAD} y={y1 - 6} fontSize={11} fill="#16324a" opacity={0.7} fontFamily="Inter, sans-serif" textAnchor="end">
           Готовность
         </text>
-        <text x={PAD} y={y2 - 6} fontSize={11} fill="#16324a" opacity={0.7} fontFamily="Inter, sans-serif">
+        <text x={W - PAD} y={y2 - 6} fontSize={11} fill="#16324a" opacity={0.7} fontFamily="Inter, sans-serif" textAnchor="end">
           Деньги
         </text>
 
@@ -132,18 +133,18 @@ export function MoneyProgressRace({
           {moneyPct === null ? "—" : `${money}%`}
         </text>
 
-        {/* Gap bracket between markers */}
-        {showGapZone && (
+        {/* Gap bracket between markers — always reserve space, only show if gap != 0 */}
+        {showGapZone ? (
           <g>
             <path
-              d={`M ${gapStart} ${y1 - 8} L ${gapStart} ${y1 - 11} L ${gapEnd} ${y1 - 11} L ${gapEnd} ${y1 - 8}`}
+              d={`M ${gapStart} ${y1 - 8} L ${gapStart} ${y1 - 12} L ${gapEnd} ${y1 - 12} L ${gapEnd} ${y1 - 8}`}
               fill="none"
               stroke={gapColor}
               strokeWidth={1.5}
             />
             <text
               x={(gapStart + gapEnd) / 2}
-              y={y1 - 14}
+              y={GAP_AREA_H / 2 + 4}
               fontSize={10}
               fontWeight={600}
               fill={gapColor}
@@ -153,6 +154,11 @@ export function MoneyProgressRace({
               {gap > 0 ? "+" : ""}{gap}п.п.
             </text>
           </g>
+        ) : (
+          /* Invisible placeholder to reserve space when gap=0 */
+          <text x={W / 2} y={GAP_AREA_H / 2 + 4} fontSize={10} fill="transparent" fontFamily="'IBM Plex Mono', monospace">
+            placeholder
+          </text>
         )}
       </svg>
 

@@ -244,9 +244,6 @@ export default function ReportsPage() {
                         {e.userName} · {new Date(e.createdAt).toLocaleString("ru-RU")}
                       </span>
                     </div>
-                    <span className="rounded bg-secondary px-2 py-0.5 text-xs font-mono text-muted-foreground">
-                      {e.action}
-                    </span>
                   </div>
                 ))
               )}

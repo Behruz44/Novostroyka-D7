@@ -2,9 +2,44 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { ClipboardCheck } from "lucide-react";
+import { ClipboardCheck, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+function FallbackImage({
+  src,
+  alt,
+  className,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+}) {
+  const [errored, setErrored] = useState(false);
+
+  if (errored) {
+    return (
+      <div
+        className={cn(
+          "flex h-full w-full flex-col items-center justify-center gap-2 bg-secondary text-muted-foreground",
+          className,
+        )}
+      >
+        <ImageIcon className="h-8 w-8 opacity-40" aria-hidden />
+        <span className="text-xs">Фото недоступно</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      onError={() => setErrored(true)}
+    />
+  );
+}
 
 interface ReviewItem {
   id: string;
@@ -139,7 +174,7 @@ export default function OwnerReviewPage() {
                       <div className="shrink-0">
                         <div className="relative h-[200px] w-full overflow-hidden rounded-md border border-border bg-secondary lg:w-[280px]">
                           {item.photos.length > 0 ? (
-                            <img
+                            <FallbackImage
                               src={item.photos[0]}
                               alt={`Фото: ${item.stageName}`}
                               className="h-full w-full object-cover"
@@ -158,7 +193,7 @@ export default function OwnerReviewPage() {
                         {item.photos.length > 1 && (
                           <div className="mt-2 flex gap-2">
                             {item.photos.slice(1).map((p, idx) => (
-                              <img
+                              <FallbackImage
                                 key={idx}
                                 src={p}
                                 alt=""

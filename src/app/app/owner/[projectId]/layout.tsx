@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
-import { LayoutGrid, ClipboardCheck, BarChart3, FileText } from "lucide-react";
+import { LayoutGrid, ClipboardCheck, BarChart3, FileText, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IconRail, type IconRailNavItem } from "@/components/dashboard/icon-rail";
 
@@ -50,7 +50,9 @@ export default function OwnerLayout({
         ? "expenses"
         : pathname.startsWith(`${basePath}/reports`)
           ? "reports"
-          : "overview";
+          : pathname.startsWith(`${basePath}/ask`)
+            ? "ask"
+            : "overview";
 
   const sectionPath =
     activeSection === "review"
@@ -59,13 +61,16 @@ export default function OwnerLayout({
         ? "/expenses"
         : activeSection === "reports"
           ? "/reports"
-          : "";
+          : activeSection === "ask"
+            ? "/ask"
+            : "";
 
   const navItems: IconRailNavItem[] = [
     { id: "overview", label: "Обзор", icon: LayoutGrid, href: basePath },
     { id: "review", label: "Приёмка", icon: ClipboardCheck, href: `${basePath}/review` },
     { id: "expenses", label: "Расходы", icon: BarChart3, href: `${basePath}/expenses` },
     { id: "reports", label: "Отчёты", icon: FileText, href: `${basePath}/reports` },
+    { id: "ask", label: "Спросить", icon: MessageCircle, href: `${basePath}/ask` },
   ];
 
   return (

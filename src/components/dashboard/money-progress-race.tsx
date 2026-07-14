@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface MoneyProgressRaceProps {
   progressPct: number;
@@ -17,6 +17,10 @@ const FLAG_COLORS: Record<string, string> = {
   UNKNOWN: "#9ca3af",
 };
 
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
 export function MoneyProgressRace({
   progressPct,
   moneyPct,
@@ -25,11 +29,35 @@ export function MoneyProgressRace({
   pendingReviewCount,
 }: MoneyProgressRaceProps) {
   const [hovered, setHovered] = useState(false);
+  const [animProgress, setAnimProgress] = useState(0);
+  const [animMoney, setAnimMoney] = useState(0);
+  const rafRef = useRef<number>(0);
 
   const money = moneyPct ?? 0;
   const progress = progressPct;
   const gap = gapPp ?? 0;
   const gapColor = gap > 15 ? "#c0392b" : gap > 8 ? "#b07c1f" : "#0e7a6c";
+
+  useEffect(() => {
+    const duration = 700;
+    const moneyDelay = 100;
+    const start = performance.now();
+
+    function tick(now: number) {
+      const elapsed = now - start;
+      const pT = Math.min(elapsed / duration, 1);
+      setAnimProgress(progress * easeOutCubic(pT));
+      if (elapsed >= moneyDelay) {
+        const mT = Math.min((elapsed - moneyDelay) / duration, 1);
+        setAnimMoney(money * easeOutCubic(mT));
+      }
+      if (elapsed < duration + moneyDelay) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    }
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [progress, money]);
 
   const W = 600;
   const H = 130;
@@ -41,12 +69,14 @@ export function MoneyProgressRace({
   const y1 = GAP_AREA_H + 12;
   const y2 = y1 + trackH + trackGap;
 
-  const progressX = PAD + (trackW * progress) / 100;
-  const moneyX = PAD + (trackW * money) / 100;
+  const progressX = PAD + (trackW * animProgress) / 100;
+  const moneyX = PAD + (trackW * animMoney) / 100;
 
   const gapStart = Math.min(progressX, moneyX);
   const gapEnd = Math.max(progressX, moneyX);
-  const showGapZone = Math.abs(gap) > 0 && moneyPct !== null;
+  const showGapZone = Math.abs(gap) > 0 && moneyPct !== null && animProgress > 0 && animMoney > 0;
+  const displayProgress = Math.round(animProgress);
+  const displayMoney = Math.round(animMoney);
 
   return (
     <div
@@ -69,10 +99,10 @@ export function MoneyProgressRace({
         <rect x={PAD} y={y2} width={trackW} height={trackH} rx={4} fill="#f3f4f6" />
 
         {/* Progress fill (teal) */}
-        <rect x={PAD} y={y1} width={Math.max(0, progressX - PAD)} height={trackH} rx={4} fill="#0e7a6c" />
+        <rect x={PAD} y={y1} width={Math.max(0, progressX - PAD)} height={trackH} rx={4} fill="#0e7a6c" style={{ transition: "width 0.05s linear" }} />
 
         {/* Money fill (gold) */}
-        <rect x={PAD} y={y2} width={Math.max(0, moneyX - PAD)} height={trackH} rx={4} fill="#b07c1f" />
+        <rect x={PAD} y={y2} width={Math.max(0, moneyX - PAD)} height={trackH} rx={4} fill="#b07c1f" style={{ transition: "width 0.05s linear" }} />
 
         {/* Gap zone — shaded area between the two markers */}
         {showGapZone && (
@@ -119,7 +149,7 @@ export function MoneyProgressRace({
           textAnchor="end"
           fontFamily="'IBM Plex Mono', monospace"
         >
-          {progress}%
+          {displayProgress}%
         </text>
         <text
           x={W - PAD}
@@ -130,7 +160,7 @@ export function MoneyProgressRace({
           textAnchor="end"
           fontFamily="'IBM Plex Mono', monospace"
         >
-          {moneyPct === null ? "—" : `${money}%`}
+          {moneyPct === null ? "—" : `${displayMoney}%`}
         </text>
 
         {/* Gap bracket between markers — always reserve space, only show if gap != 0 */}

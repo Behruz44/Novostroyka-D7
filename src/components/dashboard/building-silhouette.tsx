@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface FloorData {
   floor: number;
@@ -11,10 +11,51 @@ interface BuildingSilhouetteProps {
   floors: FloorData[];
 }
 
+function easeOutCubic(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
 export function BuildingSilhouette({ floors }: BuildingSilhouetteProps) {
   const [hoveredFloor, setHoveredFloor] = useState<number | null>(null);
+  const [animValues, setAnimValues] = useState<Record<number, number>>({});
+  const rafRef = useRef<number>(0);
 
-  if (floors.length === 0) {
+  const sorted = [...floors].sort((a, b) => a.floor - b.floor);
+  const floor0 = sorted.find((f) => f.floor === 0);
+  const upperFloors = sorted.filter((f) => f.floor !== 0);
+  const maxFloor = upperFloors.length > 0 ? Math.max(...upperFloors.map((f) => f.floor)) : 0;
+
+  useEffect(() => {
+    const allFloors = sorted;
+    const stagger = 80;
+    const duration = 400;
+    const start = performance.now();
+
+    const initial: Record<number, number> = {};
+    allFloors.forEach((f) => { initial[f.floor] = 0; });
+    setAnimValues(initial);
+
+    function tick(now: number) {
+      const elapsed = now - start;
+      const next: Record<number, number> = {};
+      let allDone = true;
+      allFloors.forEach((f, idx) => {
+        const delay = idx * stagger;
+        const t = Math.max(0, Math.min((elapsed - delay) / duration, 1));
+        next[f.floor] = f.progressPct * easeOutCubic(t);
+        if (t < 1) allDone = false;
+      });
+      setAnimValues(next);
+      if (!allDone) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    }
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [floors.length]);
+
+  if (sorted.length === 0) {
     return (
       <div
         style={{
@@ -32,11 +73,6 @@ export function BuildingSilhouette({ floors }: BuildingSilhouetteProps) {
       </div>
     );
   }
-
-  const sorted = [...floors].sort((a, b) => a.floor - b.floor);
-  const floor0 = sorted.find((f) => f.floor === 0);
-  const upperFloors = sorted.filter((f) => f.floor !== 0);
-  const maxFloor = upperFloors.length > 0 ? Math.max(...upperFloors.map((f) => f.floor)) : 0;
 
   const BLOCK_H = 32;
   const BLOCK_GAP = 3;
@@ -100,7 +136,8 @@ export function BuildingSilhouette({ floors }: BuildingSilhouetteProps) {
 
         {/* Upper floors — stacked top (highest floor) to bottom */}
         {[...upperFloors].reverse().map((f) => {
-          const fillH = (BLOCK_H * f.progressPct) / 100;
+          const animPct = animValues[f.floor] ?? 0;
+          const fillH = (BLOCK_H * animPct) / 100;
           const blockY = currentY;
           currentY += BLOCK_H + BLOCK_GAP;
           const isHovered = hoveredFloor === f.floor;
@@ -154,7 +191,7 @@ export function BuildingSilhouette({ floors }: BuildingSilhouetteProps) {
                 fill={isHovered ? "#0e7a6c" : "#16324a"}
                 fontFamily="'IBM Plex Mono', monospace"
               >
-                {f.progressPct}%
+                {Math.round(animPct)}%
               </text>
             </g>
           );
@@ -162,7 +199,8 @@ export function BuildingSilhouette({ floors }: BuildingSilhouetteProps) {
 
         {/* Floor 0 — foundation slab (wider, shorter) */}
         {floor0 && (() => {
-          const fillH = (FLOOR0_H * floor0.progressPct) / 100;
+          const animPct0 = animValues[0] ?? 0;
+          const fillH = (FLOOR0_H * animPct0) / 100;
           const blockY = currentY;
           const isHovered = hoveredFloor === 0;
 
@@ -195,8 +233,8 @@ export function BuildingSilhouette({ floors }: BuildingSilhouetteProps) {
                 x={floor0X + 8}
                 y={blockY + FLOOR0_H / 2 + 4}
                 fontSize={10}
-                fill={floor0.progressPct > 50 ? "#fff" : "#16324a"}
-                opacity={floor0.progressPct > 50 ? 0.95 : 0.7}
+                fill={animPct0 > 50 ? "#fff" : "#16324a"}
+                opacity={animPct0 > 50 ? 0.95 : 0.7}
                 fontFamily="Inter, sans-serif"
                 fontWeight={500}
               >
@@ -210,7 +248,7 @@ export function BuildingSilhouette({ floors }: BuildingSilhouetteProps) {
                 fill={isHovered ? "#0e7a6c" : "#16324a"}
                 fontFamily="'IBM Plex Mono', monospace"
               >
-                {floor0.progressPct}%
+                {Math.round(animPct0)}%
               </text>
             </g>
           );

@@ -139,7 +139,9 @@ export default function OwnerLayout({
       </aside>
 
       {/* Main content */}
-      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <div key={activeSection} className="flex min-w-0 flex-1 flex-col animate-section-enter">
+        {children}
+      </div>
     </div>
   );
 }

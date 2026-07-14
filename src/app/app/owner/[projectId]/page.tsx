@@ -2,6 +2,8 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useParams } from "next/navigation";
+import { MoneyProgressRace } from "@/components/dashboard/money-progress-race";
+import { BuildingSilhouette } from "@/components/dashboard/building-silhouette";
 
 interface FloorProgress {
   floor: number;
@@ -34,48 +36,6 @@ function formatMinor(minor: string): string {
   const kopecks = n % 100n;
   const kopecksStr = kopecks.toString().padStart(2, "0");
   return `${rubles}.${kopecksStr}`;
-}
-
-function MetricCard({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color: string;
-}) {
-  return (
-    <div
-      style={{
-        background: "var(--color-bg)",
-        borderRadius: "12px",
-        padding: "1rem 1.25rem",
-        boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-      }}
-    >
-      <p
-        style={{
-          fontSize: "0.75rem",
-          color: "var(--color-navy)",
-          opacity: 0.6,
-          marginBottom: "0.375rem",
-        }}
-      >
-        {label}
-      </p>
-      <p
-        style={{
-          fontSize: "1.5rem",
-          fontWeight: 600,
-          color,
-          lineHeight: 1.2,
-        }}
-      >
-        {value}
-      </p>
-    </div>
-  );
 }
 
 const flagColors: Record<string, { bg: string; text: string; dot: string }> = {
@@ -166,40 +126,14 @@ export default function OwnerDashboardPage() {
               </div>
             )}
 
-            {/* 4 metric cards */}
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: "0.75rem",
-                marginBottom: "1.5rem",
-              }}
-            >
-              <MetricCard
-                label="Готовность"
-                value={`${summary.progressPct}%`}
-                color="var(--color-teal)"
-              />
-              <MetricCard
-                label="Деньги"
-                value={summary.moneyPct === null ? "—" : `${summary.moneyPct}%`}
-                color="var(--color-navy)"
-              />
-              <MetricCard
-                label="Расхождение"
-                value={
-                  summary.gapPp === null
-                    ? "—"
-                    : `${summary.gapPp > 0 ? "+" : ""}${summary.gapPp}п.п.`
-                }
-                color={flagColors[summary.flag].bg}
-              />
-              <MetricCard
-                label="На проверке"
-                value={`${summary.pendingReviewCount}`}
-                color="var(--color-gold)"
-              />
-            </div>
+            {/* Money vs Progress Race */}
+            <MoneyProgressRace
+              progressPct={summary.progressPct}
+              moneyPct={summary.moneyPct}
+              gapPp={summary.gapPp}
+              flag={summary.flag}
+              pendingReviewCount={summary.pendingReviewCount}
+            />
 
             {/* Money detail */}
             <div
@@ -266,81 +200,8 @@ export default function OwnerDashboardPage() {
               </div>
             </div>
 
-            {/* Floor pyramid */}
-            <h2
-              style={{
-                fontSize: "1rem",
-                color: "var(--color-navy)",
-                marginBottom: "0.75rem",
-              }}
-            >
-              Этажи
-            </h2>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.5rem",
-                marginBottom: "1.5rem",
-              }}
-            >
-              {summary.floors.map((f) => (
-                <div
-                  key={f.floor}
-                  style={{
-                    background: "var(--color-bg)",
-                    borderRadius: "10px",
-                    padding: "0.625rem 0.875rem",
-                    boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      marginBottom: "0.375rem",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "0.8125rem",
-                        fontWeight: 500,
-                        color: "var(--color-navy)",
-                      }}
-                    >
-                      {f.floor === 0 ? "Общее" : `Этаж ${f.floor}`}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "0.75rem",
-                        color: "var(--color-navy)",
-                        opacity: 0.6,
-                      }}
-                    >
-                      {f.progressPct}%
-                    </span>
-                  </div>
-                  <div
-                    style={{
-                      height: "6px",
-                      background: "var(--color-bg-alt)",
-                      borderRadius: "3px",
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: `${f.progressPct}%`,
-                        height: "100%",
-                        background: "var(--color-teal)",
-                        borderRadius: "3px",
-                        transition: "width 0.3s",
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            {/* Building Silhouette */}
+            <BuildingSilhouette floors={summary.floors} />
 
             {/* Event feed */}
             <h2

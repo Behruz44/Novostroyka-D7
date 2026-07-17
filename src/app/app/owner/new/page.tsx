@@ -201,7 +201,7 @@ export default function NewProjectPage() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-secondary">
+    <main className="flex h-full flex-col bg-secondary">
       {/* Header */}
       <header className="border-b border-border bg-panel px-5 py-3">
         <div className="flex items-center justify-between">

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Role } from "@prisma/client";
 import { requireRole } from "@/lib/auth-guard";
 import { answerPhotoQuestion } from "@/lib/services/photo-chat";
+import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,7 @@ function checkRateLimit(userId: string): { allowed: boolean; error?: string } {
 interface RequestBody {
   projectId?: string;
   question?: string;
+  threadId?: string;
 }
 
 export async function POST(request: Request) {
@@ -60,7 +62,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Некорректный запрос" }, { status: 400 });
   }
 
-  const { projectId, question } = body;
+  const { projectId, question, threadId } = body;
 
   if (!projectId || typeof projectId !== "string") {
     return NextResponse.json(
@@ -100,7 +102,54 @@ export async function POST(request: Request) {
 
   try {
     const result = await answerPhotoQuestion(projectId, question.trim());
-    return NextResponse.json(result);
+
+    // Persist to chat history
+    let thread = null;
+    if (threadId) {
+      thread = await prisma.chatThread.findUnique({
+        where: { id: threadId },
+        select: { id: true, projectId: true, userId: true },
+      });
+      if (!thread || thread.projectId !== projectId || thread.userId !== session!.user.id) {
+        thread = null;
+      }
+    }
+
+    if (!thread) {
+      const title = question.trim().slice(0, 50) + (question.trim().length > 50 ? "…" : "");
+      thread = await prisma.chatThread.create({
+        data: {
+          projectId,
+          userId: session!.user.id,
+          title,
+        },
+      });
+    }
+
+    await prisma.chatMessage.create({
+      data: {
+        threadId: thread.id,
+        role: "user",
+        content: question.trim(),
+        photoKeys: [],
+      },
+    });
+
+    await prisma.chatMessage.create({
+      data: {
+        threadId: thread.id,
+        role: "assistant",
+        content: result.reply,
+        photoKeys: result.photos.map((p) => p.photoKey),
+      },
+    });
+
+    await prisma.chatThread.update({
+      where: { id: thread.id },
+      data: { updatedAt: new Date() },
+    });
+
+    return NextResponse.json({ ...result, threadId: thread.id });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Неизвестная ошибка ИИ";
     console.error("[api/photo-chat] error:", msg);

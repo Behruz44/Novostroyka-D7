@@ -33,40 +33,41 @@ export function IconRail({
   return (
     <nav
       aria-label="Основная навигация"
-      className="flex w-[76px] shrink-0 flex-col items-stretch border-r border-[#1d4060] bg-[#16324a] py-0"
+      className="relative flex w-[88px] shrink-0 flex-col items-stretch border-r border-white/10 py-0 shadow-[4px_0_18px_rgba(9,29,45,0.12)]"
+      style={{ background: "linear-gradient(180deg, #16324A 0%, #0F2333 100%)" }}
     >
       {/* Brand mark */}
-      <div className="flex items-center justify-center px-0 py-3.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal text-[15px] font-bold text-white shadow-sm">
+      <div className="flex items-center justify-center px-0 py-5">
+        <div className="flex h-11 w-11 items-center justify-center rounded-[14px] border border-white/15 bg-[linear-gradient(145deg,#149181,#096157)] text-[16px] font-bold tracking-[-0.03em] text-white shadow-[0_1px_1px_rgba(0,0,0,0.18),0_8px_18px_rgba(0,0,0,0.2)]">
           {brandLetter}
         </div>
       </div>
 
       {/* Divider */}
-      <div className="mx-3 h-px bg-[#1d4060]" />
+      <div className="mx-4 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
 
       {/* New project button */}
-      <div className="px-2 pt-3">
+      <div className="px-3 pt-4">
         <a
           href={newProjectHref}
           aria-label="Новый объект"
-          className="group flex flex-col items-center gap-1 rounded-lg bg-teal/20 px-1 py-2 transition-colors hover:bg-teal/40"
+          className="group flex flex-col items-center gap-1.5 rounded-xl border border-[#a7ddd4]/10 bg-white/[0.055] px-1 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-all hover:border-[#a7ddd4]/25 hover:bg-white/10"
         >
           <Plus
-            className="h-5 w-5 text-teal transition-colors group-hover:text-white"
+            className="h-[18px] w-[18px] text-[#6fd0c1] transition-colors group-hover:text-white"
             aria-hidden
           />
-          <span className="text-[9px] font-semibold uppercase leading-none tracking-[0.06em] text-teal transition-colors group-hover:text-white">
+          <span className="text-[9px] font-semibold uppercase leading-none tracking-[0.09em] text-[#8cd9cd] transition-colors group-hover:text-white">
             Новый
           </span>
         </a>
       </div>
 
       {/* Divider */}
-      <div className="mx-3 mt-3 h-px bg-[#1d4060]" />
+      <div className="mx-4 mt-4 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
 
       {/* Nav items */}
-      <div className="flex flex-col gap-1.5 px-2 pt-3">
+      <div className="flex flex-col gap-2 px-3 pt-4">
         {items.map((item) => {
           const isActive = item.id === activeId;
           const Icon = item.icon;
@@ -83,34 +84,37 @@ export function IconRail({
                 }
               }}
               className={cn(
-                "group relative flex flex-col items-center gap-1 rounded-lg px-1 py-2 transition-colors",
+                "group relative flex flex-col items-center gap-1.5 transition-all",
                 isActive
-                  ? "bg-teal text-white"
-                  : "text-[#7a92a3] hover:bg-[#1d4060] hover:text-white",
+                  ? "text-white"
+                  : "text-[#C4D0DC] hover:text-white",
               )}
             >
-              {/* Left-edge accent bar for active state */}
-              {isActive && (
-                <span
-                  className="absolute -left-2 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r-full bg-[#14b8a6]"
-                  aria-hidden
-                />
-              )}
-              <Icon
-                className={cn(
-                  "h-5 w-5 transition-colors",
-                  isActive
-                    ? "text-white"
-                    : "text-[#7a92a3] group-hover:text-white",
-                )}
-                aria-hidden
-              />
+              {/* Active icon tile */}
               <span
                 className={cn(
-                  "text-[9px] font-semibold uppercase leading-none tracking-[0.06em] transition-colors",
+                  "flex items-center justify-center transition-all",
+                  isActive
+                    ? "rounded-[10px] bg-[#0E7A6C] px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.2),0_4px_12px_rgba(14,122,108,0.3)]"
+                    : "px-3 py-2.5",
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "h-[17px] w-[17px] transition-colors",
+                    isActive
+                      ? "text-white"
+                      : "text-[#C4D0DC] group-hover:text-white",
+                  )}
+                  aria-hidden
+                />
+              </span>
+              <span
+                className={cn(
+                  "text-[9px] font-semibold uppercase leading-none tracking-[0.08em] transition-colors",
                   isActive
                     ? "text-white"
-                    : "text-[#7a92a3] group-hover:text-white",
+                    : "text-[#C4D0DC] group-hover:text-white",
                 )}
               >
                 {item.label}
@@ -122,16 +126,16 @@ export function IconRail({
 
       {/* Bottom divider + account area */}
       <div className="mt-auto">
-        <div className="mx-3 h-px bg-[#1d4060]" />
+        <div className="mx-4 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
         <a
           href={userHref}
           aria-label={userLabel}
-          className="flex flex-col items-center gap-1 px-2 py-3 transition-colors"
+          className="group flex flex-col items-center gap-1.5 px-3 py-4 transition-colors"
         >
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1d4060] text-[11px] font-semibold text-[#7a92a3] transition-colors hover:bg-[#264a6e] hover:text-white">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-[11px] font-semibold text-[#9eb0bd] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-all group-hover:border-white/20 group-hover:bg-white/10 group-hover:text-white">
             {userInitial}
           </div>
-          <span className="text-[9px] font-medium uppercase leading-none tracking-[0.04em] text-[#5a7384]">
+          <span className="text-[9px] font-medium uppercase leading-none tracking-[0.07em] text-[#6f8798] transition-colors group-hover:text-[#a9bbc7]">
             {userLabel}
           </span>
         </a>

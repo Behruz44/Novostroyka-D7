@@ -1,9 +1,22 @@
 import { prisma } from "@/lib/db";
 import { StageStatus, MarkStatus } from "@prisma/client";
 
+const AT_RISK_THRESHOLD_DAYS = 3;
+
+export type ScheduleStatus = "ON_TRACK" | "AT_RISK" | "LATE" | "NO_PLAN";
+
 export interface FloorProgress {
   floor: number;
   progressPct: number;
+}
+
+export interface StageScheduleInfo {
+  id: string;
+  name: string;
+  floor: number;
+  plannedStart: string | null;
+  plannedEnd: string | null;
+  scheduleStatus: ScheduleStatus;
 }
 
 export interface ProjectSummary {
@@ -17,6 +30,8 @@ export interface ProjectSummary {
   doneWeightBp: number;
   totalWeightBp: number;
   floors: FloorProgress[];
+  stages: StageScheduleInfo[];
+  criticalStages: number;
 }
 
 export interface ProjectMetrics {
@@ -85,14 +100,23 @@ export async function getProjectSummary(projectId: string): Promise<ProjectSumma
     where: { status: MarkStatus.REVIEW, stage: { projectId } },
   });
 
-  // 4. Per-floor progress
-  const floorsData = await prisma.stage.findMany({
+  // 4. Per-floor progress + stage schedule info
+  const stagesData = await prisma.stage.findMany({
     where: { projectId },
-    select: { floor: true, weightBp: true, status: true },
+    select: {
+      id: true,
+      name: true,
+      floor: true,
+      weightBp: true,
+      status: true,
+      plannedStart: true,
+      plannedEnd: true,
+    },
+    orderBy: [{ floor: "asc" }, { order: "asc" }],
   });
 
   const floorMap = new Map<number, { done: number; total: number }>();
-  for (const s of floorsData) {
+  for (const s of stagesData) {
     const entry = floorMap.get(s.floor) ?? { done: 0, total: 0 };
     entry.total += s.weightBp;
     if (s.status === StageStatus.DONE) entry.done += s.weightBp;
@@ -106,6 +130,66 @@ export async function getProjectSummary(projectId: string): Promise<ProjectSumma
     }))
     .sort((a, b) => a.floor - b.floor);
 
+  // 5. Schedule status per stage
+  const reviewedMarkDates = await prisma.stageMark.findMany({
+    where: {
+      stage: { projectId },
+      status: MarkStatus.APPROVED,
+    },
+    select: { stageId: true, reviewedAt: true },
+    orderBy: { reviewedAt: "desc" },
+  });
+
+  const latestReviewByStage = new Map<string, Date>();
+  for (const m of reviewedMarkDates) {
+    if (m.reviewedAt && !latestReviewByStage.has(m.stageId)) {
+      latestReviewByStage.set(m.stageId, m.reviewedAt);
+    }
+  }
+
+  const now = new Date();
+  const stages: StageScheduleInfo[] = stagesData.map((s) => {
+    let scheduleStatus: ScheduleStatus = "NO_PLAN";
+
+    if (!s.plannedEnd) {
+      scheduleStatus = "NO_PLAN";
+    } else if (s.status === StageStatus.DONE) {
+      const reviewedAt = latestReviewByStage.get(s.id);
+      if (reviewedAt && reviewedAt > s.plannedEnd) {
+        scheduleStatus = "LATE";
+      } else {
+        scheduleStatus = "ON_TRACK";
+      }
+    } else {
+      // Not DONE yet
+      const daysUntilEnd = Math.ceil(
+        (s.plannedEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      if (daysUntilEnd < 0) {
+        scheduleStatus = "LATE";
+      } else if (daysUntilEnd <= AT_RISK_THRESHOLD_DAYS && s.status === StageStatus.WAIT) {
+        scheduleStatus = "AT_RISK";
+      } else {
+        scheduleStatus = "ON_TRACK";
+      }
+    }
+
+    return {
+      id: s.id,
+      name: s.name,
+      floor: s.floor,
+      plannedStart: s.plannedStart?.toISOString() ?? null,
+      plannedEnd: s.plannedEnd?.toISOString() ?? null,
+      scheduleStatus,
+    };
+  });
+
+  // 6. Critical stages: LATE stages in a project with flag != OK
+  const lateStageCount =
+    flag !== "OK"
+      ? stages.filter((s) => s.scheduleStatus === "LATE").length
+      : 0;
+
   return {
     progressPct,
     moneyPct,
@@ -117,6 +201,8 @@ export async function getProjectSummary(projectId: string): Promise<ProjectSumma
     doneWeightBp,
     totalWeightBp,
     floors,
+    stages,
+    criticalStages: lateStageCount,
   };
 }
 

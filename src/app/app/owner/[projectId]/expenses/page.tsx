@@ -14,10 +14,18 @@ interface BudgetLine {
   remainingMinor: string;
 }
 
+interface Stage {
+  stageId: string;
+  stageName: string;
+  floor: number;
+  totalSpent: string;
+}
+
 interface Expense {
   id: string;
   expenseDate: string;
   budgetLine: { category: string } | null;
+  stage: { id: string; name: string; floor: number } | null;
   description: string;
   amountMinor: string;
   receiptPhotoKey: string | null;
@@ -41,6 +49,7 @@ export default function OwnerExpensesPage() {
   const params = useParams();
   const projectId = params.projectId as string;
   const [budgetLines, setBudgetLines] = useState<BudgetLine[]>([]);
+  const [stages, setStages] = useState<Stage[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +57,7 @@ export default function OwnerExpensesPage() {
   const [form, setForm] = useState({
     date: "",
     category: "",
+    stageId: "",
     amount: "",
     description: "",
   });
@@ -55,10 +65,11 @@ export default function OwnerExpensesPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [budgetRes, expRes, sumRes] = await Promise.all([
+      const [budgetRes, expRes, sumRes, stagesRes] = await Promise.all([
         fetch(`/api/budget-summary?projectId=${projectId}`),
         fetch(`/api/expenses?projectId=${projectId}`),
         fetch(`/api/projects/${projectId}/summary`),
+        fetch(`/api/projects/${projectId}/spending-by-stage?includeAll=true`),
       ]);
       if (budgetRes.ok) {
         const bd = await budgetRes.json();
@@ -70,6 +81,10 @@ export default function OwnerExpensesPage() {
       }
       if (sumRes.ok) {
         setSummary(await sumRes.json());
+      }
+      if (stagesRes.ok) {
+        const sd = await stagesRes.json();
+        setStages(sd.stages || []);
       }
     } catch (err) {
       console.error("expenses fetch failed", err);
@@ -102,6 +117,7 @@ export default function OwnerExpensesPage() {
         body: JSON.stringify({
           projectId,
           budgetLineId: bl.id,
+          stageId: form.stageId || undefined,
           amountMinor: form.amount,
           description: form.description,
           expenseDate: form.date,
@@ -109,7 +125,7 @@ export default function OwnerExpensesPage() {
         }),
       });
       if (res.ok) {
-        setForm({ date: "", category: "", amount: "", description: "" });
+        setForm({ date: "", category: "", stageId: "", amount: "", description: "" });
         setReceiptPreview(null);
         fetchAll();
       }
@@ -207,6 +223,36 @@ export default function OwnerExpensesPage() {
                       <option key={b.id} value={b.category}>
                         {b.category}
                       </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Этап (необязательно)
+                  </label>
+                  <select
+                    value={form.stageId}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, stageId: e.target.value }))
+                    }
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring"
+                  >
+                    <option value="">— Без привязки к этапу —</option>
+                    {Object.entries(
+                      stages.reduce<Record<string, Stage[]>>((acc, s) => {
+                        const key = `Этаж ${s.floor}`;
+                        (acc[key] ||= []).push(s);
+                        return acc;
+                      }, {}),
+                    ).map(([floorLabel, floorStages]) => (
+                      <optgroup key={floorLabel} label={floorLabel}>
+                        {floorStages.map((s) => (
+                          <option key={s.stageId} value={s.stageId}>
+                            {s.stageName}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 </div>
@@ -383,6 +429,12 @@ export default function OwnerExpensesPage() {
                             </td>
                             <td className="px-4 py-3 text-foreground">
                               {e.budgetLine?.category ?? "—"}
+                              {e.stage && (
+                                <span className="text-muted-foreground">
+                                  {" · "}
+                                  {e.stage.name}
+                                </span>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-muted-foreground">
                               {e.description}

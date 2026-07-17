@@ -78,7 +78,7 @@ export default function OwnerLayout({
   ];
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-background text-foreground">
+    <div className="flex h-screen w-full overflow-hidden bg-[#F5F4F1] text-foreground">
       {/* Icon rail */}
       <IconRail
         items={navItems}
@@ -90,13 +90,16 @@ export default function OwnerLayout({
       />
 
       {/* Project switcher */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-panel md:flex">
-        <div className="border-b border-border px-4 py-3">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <aside className="hidden w-[272px] shrink-0 flex-col border-r border-[#dce3e1] bg-[#fbfcfb] shadow-[3px_0_16px_rgba(9,29,45,0.035)] md:flex">
+        <div className="border-b border-[#e5eae8] px-5 pb-4 pt-5">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#748590]">
             Объекты
           </p>
+          <p className="mt-1 text-sm font-semibold tracking-[-0.015em] text-[#16324a]">
+            Портфель проектов
+          </p>
         </div>
-        <div className="flex flex-col gap-1 p-2">
+        <div className="flex flex-col gap-2.5 p-3">
           {projects.map((p) => {
             const isActive = p.id === projectId;
             return (
@@ -105,40 +108,42 @@ export default function OwnerLayout({
                 href={`/app/owner/${p.id}${sectionPath}`}
                 aria-current={isActive ? "true" : undefined}
                 className={cn(
-                  "flex flex-col gap-2 rounded-md border px-3 py-2.5 text-left transition-colors",
+                  "premium-surface-interactive flex flex-col gap-3 rounded-[14px] border px-3.5 py-3.5 text-left",
                   isActive
-                    ? "border-teal/40 bg-accent"
-                    : "border-transparent hover:border-border hover:bg-secondary",
+                    ? "border-[#9fcfc7] bg-[linear-gradient(135deg,#ffffff_0%,#f0faf7_100%)] shadow-[0_1px_1px_rgba(9,29,45,0.06),0_8px_20px_rgba(14,122,108,0.09)]"
+                    : "border-transparent bg-transparent shadow-none hover:border-[#d9e2df] hover:bg-white", 
                 )}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <span className="text-sm font-medium leading-tight text-foreground">
+                  <span className="text-[13px] font-semibold leading-tight tracking-[-0.01em] text-[#16324a]">
                     {p.name}
                   </span>
                   <span
                     className={cn(
-                      "mt-1 h-2 w-2 shrink-0 rounded-full",
+                      "mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(9,29,45,0.08)]",
                       flagDot[p.flag],
                     )}
                     aria-hidden
                   />
                 </div>
                 {p.address && (
-                  <p className="truncate text-[11px] text-muted-foreground">
+                  <p className="truncate text-[11px] leading-relaxed text-[#73838e]">
                     {p.address}
                   </p>
                 )}
                 <div className="flex items-center gap-2">
-                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
+                  <div className="h-2 flex-1 overflow-hidden rounded-full border border-[#dfe6e3] bg-[#e9eeec] shadow-[inset_0_1px_2px_rgba(9,29,45,0.1)]">
                     <div
                       className={cn(
                         "h-full rounded-full",
-                        isActive ? "bg-teal" : "bg-muted-foreground/50",
+                        isActive
+                          ? "bg-[linear-gradient(90deg,#096157,#20a894)] shadow-[0_0_8px_rgba(14,122,108,0.22)]"
+                          : "bg-[#8fa19d]",
                       )}
                       style={{ width: `${p.progressPct}%` }}
                     />
                   </div>
-                  <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                  <span className="min-w-9 text-right font-mono text-[11px] font-semibold tabular-nums text-[#506773]">
                     {p.progressPct}%
                   </span>
                 </div>

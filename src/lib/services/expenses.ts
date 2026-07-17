@@ -6,6 +6,7 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 export interface CreateExpenseInput {
   projectId: string;
   budgetLineId: string;
+  stageId?: string | null;
   amountMinor: bigint;
   description: string;
   expenseDate: string;
@@ -73,6 +74,7 @@ export async function createExpense(
   const {
     projectId,
     budgetLineId,
+    stageId,
     amountMinor,
     description,
     expenseDate,
@@ -143,6 +145,25 @@ export async function createExpense(
     };
   }
 
+  if (stageId) {
+    const stage = await prisma.stage.findUnique({
+      where: { id: stageId },
+      select: { projectId: true },
+    });
+
+    if (!stage) {
+      return { ok: false, status: 400, error: "Этап не найден" };
+    }
+
+    if (stage.projectId !== projectId) {
+      return {
+        ok: false,
+        status: 400,
+        error: "Этап не принадлежит указанному проекту",
+      };
+    }
+  }
+
   if (amountMinor > project.totalBudgetMinor) {
     return {
       ok: false,
@@ -175,6 +196,7 @@ export async function createExpense(
       data: {
         projectId,
         budgetLineId,
+        stageId: stageId || null,
         amountMinor,
         description: description.trim(),
         expenseDate: parsedDate,
@@ -228,6 +250,9 @@ export async function getExpenses(
     include: {
       budgetLine: {
         select: { id: true, category: true },
+      },
+      stage: {
+        select: { id: true, name: true, floor: true },
       },
     },
     orderBy: { expenseDate: "desc" },

@@ -13,6 +13,7 @@ export const dynamic = "force-dynamic";
 interface CreateBody {
   projectId?: string;
   budgetLineId?: string;
+  stageId?: string | null;
   amountMinor?: string;
   description?: string;
   expenseDate?: string;
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
   const {
     projectId,
     budgetLineId,
+    stageId,
     amountMinor,
     description,
     expenseDate,
@@ -67,6 +69,7 @@ export async function POST(request: Request) {
   const result = await createExpense({
     projectId,
     budgetLineId,
+    stageId: stageId || null,
     amountMinor: amountMinorBigInt,
     description,
     expenseDate,

@@ -14,7 +14,6 @@ import {
 } from "recharts";
 import { Download, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 interface HistoryPoint {
   date: string;
@@ -33,6 +32,13 @@ interface EventItem {
   createdAt: string;
 }
 
+interface SpendingByStage {
+  stageId: string;
+  stageName: string;
+  floor: number;
+  totalSpent: string;
+}
+
 const ACTION_OPTIONS = [
   { value: "", label: "Все события" },
   { value: "MARK_APPROVED", label: "Этап одобрен" },
@@ -43,12 +49,19 @@ const ACTION_OPTIONS = [
   { value: "PROJECT_CREATED", label: "Проект создан" },
 ];
 
+function formatMoney(minorStr: string): string {
+  const n = BigInt(minorStr);
+  const rubles = n / 100n;
+  return rubles.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
+
 export default function ReportsPage() {
   const params = useParams();
   const projectId = params.projectId as string;
 
   const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [spendingByStage, setSpendingByStage] = useState<SpendingByStage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -61,10 +74,12 @@ export default function ReportsPage() {
     Promise.all([
       fetch(`/api/projects/${projectId}/history?days=30`).then((r) => r.json()),
       fetch(`/api/projects/${projectId}/events?limit=100`).then((r) => r.json()),
+      fetch(`/api/projects/${projectId}/spending-by-stage`).then((r) => r.json()),
     ])
-      .then(([hData, eData]) => {
+      .then(([hData, eData, sData]) => {
         if (hData.history) setHistory(hData.history);
         if (eData.events) setEvents(eData.events);
+        if (sData.stages) setSpendingByStage(sData.stages);
       })
       .catch(() => setError("Ошибка загрузки данных"))
       .finally(() => setLoading(false));
@@ -169,6 +184,39 @@ export default function ReportsPage() {
                   />
                 </LineChart>
               </ResponsiveContainer>
+            )}
+          </section>
+
+          {/* Spending by stage */}
+          <section className="rounded-lg border border-border bg-panel p-4">
+            <h2 className="mb-4 text-sm font-semibold text-foreground">
+              Расходы по этапам
+            </h2>
+            {spendingByStage.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
+                Нет расходов с привязкой к этапам
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {spendingByStage.map((s) => (
+                  <div
+                    key={s.stageId}
+                    className="flex items-center justify-between rounded-md border border-border bg-secondary px-3 py-2"
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <span className="text-sm font-medium text-foreground">
+                        {s.stageName}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Этаж {s.floor}
+                      </span>
+                    </div>
+                    <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                      {formatMoney(s.totalSpent)}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </section>
 

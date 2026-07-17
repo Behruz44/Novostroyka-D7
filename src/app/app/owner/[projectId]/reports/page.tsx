@@ -116,9 +116,9 @@ export default function ReportsPage() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* Header */}
-      <header className="border-b border-border bg-panel px-5 py-3">
+      <header className="border-b border-[#dce3e1] bg-white px-5 py-4 shadow-[var(--shadow-sm)] sm:px-7">
         <div className="flex items-center justify-between">
-          <h1 className="text-base font-semibold text-foreground">Отчёты</h1>
+          <h1 className="text-[22px] font-semibold tracking-[-0.04em] text-[#102a40]">Отчёты</h1>
           <Button variant="outline" size="sm" onClick={downloadCsv}>
             <Download className="h-3.5 w-3.5" />
             Экспорт расходов в CSV
@@ -126,7 +126,7 @@ export default function ReportsPage() {
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto p-4 lg:p-5">
+      <div className="premium-page flex-1 overflow-y-auto px-4 pb-14 pt-6 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-[900px] space-y-6">
           {error && (
             <div className="rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
@@ -135,8 +135,8 @@ export default function ReportsPage() {
           )}
 
           {/* Chart */}
-          <section className="rounded-lg border border-border bg-panel p-4">
-            <h2 className="mb-4 text-sm font-semibold text-foreground">
+          <section className="premium-surface rounded-[18px] p-5">
+            <h2 className="mb-4 text-[16px] font-semibold tracking-[-0.02em] text-[#102a40]">
               Готовность vs Деньги (30 дней)
             </h2>
             {loading ? (
@@ -188,8 +188,8 @@ export default function ReportsPage() {
           </section>
 
           {/* Spending by stage */}
-          <section className="rounded-lg border border-border bg-panel p-4">
-            <h2 className="mb-4 text-sm font-semibold text-foreground">
+          <section className="premium-surface rounded-[18px] p-5">
+            <h2 className="mb-4 text-[16px] font-semibold tracking-[-0.02em] text-[#102a40]">
               Расходы по этапам
             </h2>
             {spendingByStage.length === 0 ? (
@@ -201,17 +201,17 @@ export default function ReportsPage() {
                 {spendingByStage.map((s) => (
                   <div
                     key={s.stageId}
-                    className="flex items-center justify-between rounded-md border border-border bg-secondary px-3 py-2"
+                    className="flex items-center justify-between rounded-[12px] border border-[#e5eae8] bg-[#f7f9f8] px-4 py-3"
                   >
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-medium text-foreground">
+                      <span className="text-[13px] font-semibold text-[#16324a]">
                         {s.stageName}
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-[11px] text-[#71818b]">
                         Этаж {s.floor}
                       </span>
                     </div>
-                    <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
+                    <span className="font-mono text-[18px] font-semibold tabular-nums tracking-[-0.02em] text-[#102a40]">
                       {formatMoney(s.totalSpent)}
                     </span>
                   </div>
@@ -221,9 +221,9 @@ export default function ReportsPage() {
           </section>
 
           {/* Events with filters */}
-          <section className="rounded-lg border border-border bg-panel p-4">
+          <section className="premium-surface rounded-[18px] p-5">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-foreground">Лента событий</h2>
+              <h2 className="text-[16px] font-semibold tracking-[-0.02em] text-[#102a40]">Лента событий</h2>
               <Filter className="h-4 w-4 text-muted-foreground" />
             </div>
 
@@ -282,13 +282,13 @@ export default function ReportsPage() {
                 events.map((e) => (
                   <div
                     key={e.id}
-                    className="flex items-center justify-between rounded-md border border-border bg-secondary px-3 py-2"
+                    className="flex items-center justify-between rounded-[12px] border border-[#e5eae8] bg-[#f7f9f8] px-4 py-3"
                   >
                     <div className="flex flex-col gap-0.5">
-                      <span className="text-sm font-medium text-foreground">
+                      <span className="text-[13px] font-semibold text-[#16324a]">
                         {e.actionLabel}
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-[11px] text-[#71818b]">
                         {e.userName} · {new Date(e.createdAt).toLocaleString("ru-RU")}
                       </span>
                     </div>

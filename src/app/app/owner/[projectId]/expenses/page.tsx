@@ -345,7 +345,7 @@ export default function OwnerExpensesPage() {
                           {line.category}
                         </p>
                         <div className="mt-2.5 space-y-1.5 text-[13px]">
-                          <div className="flex justify-between">
+                          <div className="flex justify-between gap-x-2">
                             <span className="text-[#71818b]">
                               Запланировано
                             </span>
@@ -353,7 +353,7 @@ export default function OwnerExpensesPage() {
                               {formatMoney(line.plannedMinor)}
                             </span>
                           </div>
-                          <div className="flex justify-between">
+                          <div className="flex justify-between gap-x-2">
                             <span className="text-[#71818b]">
                               Потрачено
                             </span>
@@ -361,7 +361,7 @@ export default function OwnerExpensesPage() {
                               {formatMoney(line.spentMinor)}
                             </span>
                           </div>
-                          <div className="flex justify-between border-t border-[#e8edeb] pt-1.5">
+                          <div className="flex justify-between gap-x-2 border-t border-[#e8edeb] pt-1.5">
                             <span className="text-[#71818b]">
                               Остаток
                             </span>

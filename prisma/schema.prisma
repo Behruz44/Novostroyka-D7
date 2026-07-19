@@ -201,3 +201,13 @@ model EventLog {
   @@index([projectId])
   @@index([projectId, createdAt])
 }
+
+model PhotoDetection {
+  id         String   @id @default(cuid())
+  photoKey   String   @unique
+  detections Json
+  modelId    String
+  imageWidth Int
+  imageHeight Int
+  createdAt  DateTime @default(now())
+}

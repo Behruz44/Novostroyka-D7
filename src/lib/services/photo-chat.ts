@@ -245,6 +245,34 @@ export async function answerPhotoQuestion(
 
   const sampled = uniformSample(allPhotos, MAX_PHOTOS);
 
+  // Fetch any existing AI detections for the sampled photos
+  const photoKeysForDetections = sampled.map((p) => p.photoKey);
+  const existingDetections = await prisma.photoDetection.findMany({
+    where: { photoKey: { in: photoKeysForDetections } },
+    select: { photoKey: true, detections: true },
+  });
+  const detectionMap = new Map<string, { class: string; confidence: number }[]>();
+  for (const d of existingDetections) {
+    detectionMap.set(d.photoKey, d.detections as { class: string; confidence: number }[]);
+  }
+
+  // Build detection summary text for prompt
+  const detectionSummaries: string[] = [];
+  for (const photo of sampled) {
+    const dets = detectionMap.get(photo.photoKey);
+    if (dets && dets.length > 0) {
+      const counts: Record<string, number> = {};
+      for (const d of dets) {
+        counts[d.class] = (counts[d.class] ?? 0) + 1;
+      }
+      const parts = Object.entries(counts).map(([cls, n]) => `${cls}: ${n}`);
+      detectionSummaries.push(`- ${photo.photoKey}: ${parts.join(", ")}`);
+    }
+  }
+  const detectionContext = detectionSummaries.length > 0
+    ? `\n\nДанные ИИ-детекции объектов на фото:\n${detectionSummaries.join("\n")}\n`
+    : "";
+
   const photoContents: Array<
     | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
     | { type: "text"; text: string }
@@ -276,7 +304,7 @@ export async function answerPhotoQuestion(
 
   photoContents.push({
     type: "text",
-    text: `Вопрос владельца: ${question}\n\nТы анализируешь фото стройплощадки. Ответь на вопрос владельца по тому, что видно на фото. Если видишь технику/людей/машины — опиши. Если на вопрос нельзя ответить по этим фото — честно скажи, что не видно. Ответь на русском языке.`,
+    text: `Вопрос владельца: ${question}\n\nТы анализируешь фото стройплощадки. Ответь на вопрос владельца по тому, что видно на фото. Если видишь технику/людей/машины — опиши. Если на вопрос нельзя ответить по этим фото — честно скажи, что не видно. Ответь на русском языке.${detectionContext}`,
   });
 
   const controller = new AbortController();

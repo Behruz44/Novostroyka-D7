@@ -2,9 +2,111 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
-import { Check, ClipboardCheck, Clock3, ImageIcon, Layers3, UserRound, X } from "lucide-react";
+import { Check, ClipboardCheck, Clock3, ImageIcon, Layers3, Loader2, ScanSearch, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+interface DetectionBox {
+  class: string;
+  confidence: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface DetectionResult {
+  photoKey: string;
+  detections: DetectionBox[];
+  imageWidth: number;
+  imageHeight: number;
+  cached: boolean;
+}
+
+const CLASS_RU: Record<string, string> = {
+  person: "Человек",
+  car: "Машина",
+  truck: "Грузовик",
+  bus: "Автобус",
+  motorcycle: "Мотоцикл",
+  bicycle: "Велосипед",
+  excavator: "Экскаватор",
+  bulldozer: "Бульдозер",
+  crane: "Кран",
+  forklift: "Погрузчик",
+  concrete_mixer: "Бетономешалка",
+  traffic_light: "Светофор",
+  fire_hydrant: "Пожарный гидрант",
+  stop_sign: "Знак стоп",
+  parking_meter: "Паркомат",
+  bench: "Скамейка",
+};
+
+function translateClass(cls: string): string {
+  return CLASS_RU[cls] ?? cls;
+}
+
+function getBoxColor(cls: string): string {
+  if (cls === "person") return "#0e7a6c";
+  if (["car", "truck", "bus", "motorcycle", "bicycle", "excavator", "bulldozer", "crane", "forklift", "concrete_mixer"].includes(cls)) return "#c9971f";
+  return "#627482";
+}
+
+function DetectionOverlay({
+  detections,
+  imageWidth,
+  imageHeight,
+}: {
+  detections: DetectionBox[];
+  imageWidth: number;
+  imageHeight: number;
+}) {
+  return (
+    <svg
+      className="pointer-events-none absolute inset-0 h-full w-full"
+      viewBox={`0 0 ${imageWidth} ${imageHeight}`}
+      preserveAspectRatio="xMidYMid slice"
+    >
+      {detections.map((d, i) => {
+        const left = d.x - d.width / 2;
+        const top = d.y - d.height / 2;
+        const color = getBoxColor(d.class);
+        return (
+          <g key={i}>
+            <rect
+              x={left}
+              y={top}
+              width={d.width}
+              height={d.height}
+              fill="none"
+              stroke={color}
+              strokeWidth={Math.max(2, imageWidth / 400)}
+              rx={4}
+            />
+            <rect
+              x={left}
+              y={top - Math.max(22, imageHeight / 50)}
+              width={Math.max(120, d.width * 0.6)}
+              height={Math.max(22, imageHeight / 50)}
+              fill={color}
+              rx={4}
+            />
+            <text
+              x={left + 6}
+              y={top - Math.max(6, imageHeight / 80)}
+              fill="white"
+              fontSize={Math.max(14, imageWidth / 80)}
+              fontWeight="600"
+              fontFamily="system-ui, sans-serif"
+            >
+              {translateClass(d.class)} {Math.round(d.confidence * 100)}%
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
 
 function FallbackImage({
   src,
@@ -67,6 +169,9 @@ export default function OwnerReviewPage() {
   const [loading, setLoading] = useState(true);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [detections, setDetections] = useState<Record<string, DetectionResult>>({});
+  const [analyzingKey, setAnalyzingKey] = useState<string | null>(null);
+  const [detectError, setDetectError] = useState<string | null>(null);
 
   const fetchReviewQueue = useCallback(async () => {
     setLoading(true);
@@ -98,6 +203,29 @@ export default function OwnerReviewPage() {
   useEffect(() => {
     fetchReviewQueue();
   }, [fetchReviewQueue]);
+
+  async function analyzePhoto(photoKey: string) {
+    setAnalyzingKey(photoKey);
+    setDetectError(null);
+    try {
+      const res = await fetch("/api/photo-detect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ photoKey }),
+      });
+      if (res.ok) {
+        const data: DetectionResult = await res.json();
+        setDetections((prev) => ({ ...prev, [photoKey]: data }));
+      } else {
+        const err = await res.json().catch(() => ({}));
+        setDetectError(err.error || "Ошибка анализа");
+      }
+    } catch {
+      setDetectError("Не удалось выполнить анализ");
+    } finally {
+      setAnalyzingKey(null);
+    }
+  }
 
   async function approve(id: string) {
     try {
@@ -184,11 +312,20 @@ export default function OwnerReviewPage() {
                       <div className="shrink-0">
                         <div className="relative h-[230px] w-full overflow-hidden rounded-[16px] border border-[#d7dfdc] bg-[#edf1ef] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.6),0_5px_14px_rgba(9,29,45,0.08)] lg:w-[340px]">
                           {item.photos.length > 0 ? (
-                            <FallbackImage
-                              src={item.photos[0]}
-                              alt={`Фото: ${item.stageName}`}
-                              className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.015]"
-                            />
+                            <>
+                              <FallbackImage
+                                src={item.photos[0]}
+                                alt={`Фото: ${item.stageName}`}
+                                className="h-full w-full object-cover transition-transform duration-300 hover:scale-[1.015]"
+                              />
+                              {detections[item.photos[0]] && (
+                                <DetectionOverlay
+                                  detections={detections[item.photos[0]].detections}
+                                  imageWidth={detections[item.photos[0]].imageWidth}
+                                  imageHeight={detections[item.photos[0]].imageHeight}
+                                />
+                              )}
+                            </>
                           ) : (
                             <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-sm text-[#71818b]">
                               <ImageIcon className="h-7 w-7 opacity-40" aria-hidden />
@@ -201,6 +338,40 @@ export default function OwnerReviewPage() {
                             </div>
                           )}
                         </div>
+                        {item.photos.length > 0 && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={analyzingKey === item.photos[0]}
+                              onClick={() => analyzePhoto(item.photos[0])}
+                              className="h-8 rounded-[9px] border-[#d5e7e3] bg-[#effaf7] px-3 text-[11px] font-semibold text-[#096157] hover:bg-[#e0f5f0]"
+                            >
+                              {analyzingKey === item.photos[0] ? (
+                                <>
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                                  Анализ...
+                                </>
+                              ) : detections[item.photos[0]] ? (
+                                <>
+                                  <ScanSearch className="h-3.5 w-3.5" aria-hidden />
+                                  ИИ: {detections[item.photos[0]].detections.length} объектов
+                                  {detections[item.photos[0]].cached && (
+                                    <span className="text-[#71818b]">(кэш)</span>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  <ScanSearch className="h-3.5 w-3.5" aria-hidden />
+                                  Анализ ИИ
+                                </>
+                              )}
+                            </Button>
+                            {detectError && analyzingKey === null && (
+                              <span className="text-[10px] text-[#a53629]">{detectError}</span>
+                            )}
+                          </div>
+                        )}
                         {item.photos.length > 1 && (
                           <div className="mt-3 flex gap-2.5">
                             {item.photos.slice(1).map((p, idx) => (

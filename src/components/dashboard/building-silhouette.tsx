@@ -15,6 +15,8 @@ interface StageScheduleData {
   plannedStart: string | null;
   plannedEnd: string | null;
   scheduleStatus: "ON_TRACK" | "AT_RISK" | "LATE" | "NO_PLAN";
+  dependencyWarning?: boolean;
+  dependencyStageName?: string | null;
 }
 
 interface Contractor {
@@ -49,7 +51,7 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
   const [hoveredFloor, setHoveredFloor] = useState<number | null>(null);
   const [animValues, setAnimValues] = useState<Record<number, number>>({});
   const [editingFloor, setEditingFloor] = useState<number | null>(null);
-  const [editForms, setEditForms] = useState<Record<string, { start: string; end: string; contractorId: string }>>({});
+  const [editForms, setEditForms] = useState<Record<string, { start: string; end: string; contractorId: string; dependsOnStageId: string }>>({});
   const [saving, setSaving] = useState<string | null>(null);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const rafRef = useRef<number>(0);
@@ -122,30 +124,35 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
   function openEditPanel(floor: number) {
     const floorStages = stagesByFloor.get(floor);
     if (!floorStages) return;
-    const forms: Record<string, { start: string; end: string; contractorId: string }> = {};
+    const forms: Record<string, { start: string; end: string; contractorId: string; dependsOnStageId: string }> = {};
     for (const s of floorStages) {
       forms[s.id] = {
         start: toDateInputValue(s.plannedStart),
         end: toDateInputValue(s.plannedEnd),
         contractorId: "",
+        dependsOnStageId: "",
       };
     }
     setEditForms(forms);
     setEditingFloor(floor);
 
-    // Pre-fill current contractorId per stage (not carried by the stages prop)
+    // Pre-fill current contractorId and dependsOnStageId per stage (not carried by the stages prop)
     for (const s of floorStages) {
       fetch(`/api/stages/${s.id}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
-          if (data?.contractorId) {
+          if (data) {
             setEditForms((prev) => ({
               ...prev,
-              [s.id]: { ...prev[s.id], contractorId: data.contractorId },
+              [s.id]: {
+                ...prev[s.id],
+                contractorId: data.contractorId ?? "",
+                dependsOnStageId: data.dependsOnStageId ?? "",
+              },
             }));
           }
         })
-        .catch((err) => console.error("failed to fetch stage contractor", err));
+        .catch((err) => console.error("failed to fetch stage details", err));
     }
   }
 
@@ -161,6 +168,7 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
           plannedStart: formData.start || null,
           plannedEnd: formData.end || null,
           contractorId: formData.contractorId || null,
+          dependsOnStageId: formData.dependsOnStageId || null,
         }),
       });
       if (res.ok) {
@@ -171,6 +179,7 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
             start: toDateInputValue(updated.plannedStart),
             end: toDateInputValue(updated.plannedEnd),
             contractorId: updated.contractorId ?? "",
+            dependsOnStageId: updated.dependsOnStageId ?? "",
           },
         }));
       }
@@ -440,6 +449,14 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
                     style={{ background: SCHEDULE_COLORS[stage.scheduleStatus] }}
                   />
                   <span className="text-sm font-medium text-[#24465f]">{stage.name}</span>
+                  {stage.dependencyWarning && stage.dependencyStageName && (
+                    <span
+                      title={`Ждёт завершения: ${stage.dependencyStageName}`}
+                      className="ml-1 cursor-help text-sm text-[#d97706]"
+                    >
+                      ⚠
+                    </span>
+                  )}
                 </div>
                 <div className="mb-3">
                   <label className="flex flex-col gap-1">
@@ -453,6 +470,7 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
                             start: prev[stage.id]?.start ?? "",
                             end: prev[stage.id]?.end ?? "",
                             contractorId: e.target.value,
+                            dependsOnStageId: prev[stage.id]?.dependsOnStageId ?? "",
                           },
                         }))
                       }
@@ -462,6 +480,33 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
                       {contractors.map((c) => (
                         <option key={c.id} value={c.id}>
                           {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="mb-3">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#748590]">Зависит от этапа</span>
+                    <select
+                      value={editForms[stage.id]?.dependsOnStageId ?? ""}
+                      onChange={(e) =>
+                        setEditForms((prev) => ({
+                          ...prev,
+                          [stage.id]: {
+                            start: prev[stage.id]?.start ?? "",
+                            end: prev[stage.id]?.end ?? "",
+                            contractorId: prev[stage.id]?.contractorId ?? "",
+                            dependsOnStageId: e.target.value,
+                          },
+                        }))
+                      }
+                      className="rounded-md border border-[#d4dcd9] bg-white px-2.5 py-1.5 text-sm text-[#24465f] outline-none focus:border-[#0E7A6C]"
+                    >
+                      <option value="">— Нет зависимости —</option>
+                      {stages.filter((s) => s.id !== stage.id).map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
                         </option>
                       ))}
                     </select>
@@ -480,6 +525,7 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
                             start: e.target.value,
                             end: prev[stage.id]?.end ?? "",
                             contractorId: prev[stage.id]?.contractorId ?? "",
+                            dependsOnStageId: prev[stage.id]?.dependsOnStageId ?? "",
                           },
                         }))
                       }
@@ -498,6 +544,7 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
                             start: prev[stage.id]?.start ?? "",
                             end: e.target.value,
                             contractorId: prev[stage.id]?.contractorId ?? "",
+                            dependsOnStageId: prev[stage.id]?.dependsOnStageId ?? "",
                           },
                         }))
                       }

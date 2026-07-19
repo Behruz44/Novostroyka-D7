@@ -9,6 +9,7 @@ interface PatchBody {
   plannedStart?: string | null;
   plannedEnd?: string | null;
   contractorId?: string | null;
+  dependsOnStageId?: string | null;
 }
 
 export async function GET(
@@ -20,7 +21,7 @@ export async function GET(
 
   const stage = await prisma.stage.findUnique({
     where: { id: params.id },
-    select: { id: true, projectId: true, plannedStart: true, plannedEnd: true, contractorId: true },
+    select: { id: true, projectId: true, plannedStart: true, plannedEnd: true, contractorId: true, dependsOnStageId: true },
   });
 
   if (!stage) {
@@ -39,6 +40,7 @@ export async function GET(
     plannedStart: stage.plannedStart,
     plannedEnd: stage.plannedEnd,
     contractorId: stage.contractorId,
+    dependsOnStageId: stage.dependsOnStageId,
   });
 }
 
@@ -80,6 +82,7 @@ export async function PATCH(
     plannedStart?: Date | null;
     plannedEnd?: Date | null;
     contractorId?: string | null;
+    dependsOnStageId?: string | null;
   } = {};
 
   if ("contractorId" in body) {
@@ -103,6 +106,73 @@ export async function PATCH(
       }
 
       data.contractorId = body.contractorId;
+    }
+  }
+
+  if ("dependsOnStageId" in body) {
+    if (body.dependsOnStageId === null || body.dependsOnStageId === "") {
+      data.dependsOnStageId = null;
+    } else if (typeof body.dependsOnStageId === "string") {
+      // Self-dependency check
+      if (body.dependsOnStageId === stageId) {
+        return NextResponse.json(
+          { error: "Этап не может зависеть сам от себя" },
+          { status: 400 },
+        );
+      }
+
+      // Same-project check
+      const depStage = await prisma.stage.findUnique({
+        where: { id: body.dependsOnStageId },
+        select: { projectId: true },
+      });
+
+      if (!depStage) {
+        return NextResponse.json(
+          { error: "Этап-зависимость не найден" },
+          { status: 400 },
+        );
+      }
+
+      if (depStage.projectId !== stage.projectId) {
+        return NextResponse.json(
+          { error: "Этап-зависимость не принадлежит указанному проекту" },
+          { status: 400 },
+        );
+      }
+
+      // Cycle detection: traverse dependency chain up to 50 steps
+      const MAX_DEPTH = 50;
+      let currentId: string | null = body.dependsOnStageId;
+      const visited = new Set<string>([stageId]);
+
+      for (let i = 0; i < MAX_DEPTH; i++) {
+        if (currentId === null) break;
+        if (visited.has(currentId)) {
+          return NextResponse.json(
+            { error: "Циклическая зависимость этапов" },
+            { status: 400 },
+          );
+        }
+        visited.add(currentId);
+
+        const depRow: { dependsOnStageId: string | null } | null = await prisma.stage.findUnique({
+          where: { id: currentId },
+          select: { dependsOnStageId: true },
+        });
+
+        if (!depRow) break;
+        currentId = depRow.dependsOnStageId;
+      }
+
+      if (currentId !== null) {
+        return NextResponse.json(
+          { error: "Превышена максимальная глубина цепочки зависимостей" },
+          { status: 400 },
+        );
+      }
+
+      data.dependsOnStageId = body.dependsOnStageId;
     }
   }
 
@@ -157,7 +227,7 @@ export async function PATCH(
   const updated = await prisma.stage.update({
     where: { id: stageId },
     data,
-    select: { id: true, plannedStart: true, plannedEnd: true, contractorId: true },
+    select: { id: true, plannedStart: true, plannedEnd: true, contractorId: true, dependsOnStageId: true },
   });
 
   return NextResponse.json(updated);

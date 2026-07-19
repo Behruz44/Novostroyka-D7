@@ -78,27 +78,31 @@ model ProjectMember {
 }
 
 model Stage {
-  id           String      @id @default(cuid())
-  projectId    String
-  name         String
-  floor        Int
-  weightBp     Int
-  order        Int
-  status       StageStatus @default(WAIT)
-  plannedStart DateTime?
-  plannedEnd   DateTime?
-  contractorId String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  id               String      @id @default(cuid())
+  projectId        String
+  name             String
+  floor            Int
+  weightBp         Int
+  order            Int
+  status           StageStatus @default(WAIT)
+  plannedStart     DateTime?
+  plannedEnd       DateTime?
+  contractorId     String?
+  dependsOnStageId String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
 
-  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  contractor Contractor? @relation(fields: [contractorId], references: [id], onDelete: SetNull)
-  stageMarks StageMark[]
-  expenses   Expense[]
+  project     Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contractor  Contractor? @relation(fields: [contractorId], references: [id], onDelete: SetNull)
+  dependsOn   Stage?      @relation("StageDependency", fields: [dependsOnStageId], references: [id], onDelete: SetNull)
+  dependents  Stage[]     @relation("StageDependency")
+  stageMarks  StageMark[]
+  expenses    Expense[]
 
   @@index([projectId])
   @@index([projectId, order])
   @@index([contractorId])
+  @@index([dependsOnStageId])
 }
 
 model StageMark {

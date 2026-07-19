@@ -17,6 +17,8 @@ export interface StageScheduleInfo {
   plannedStart: string | null;
   plannedEnd: string | null;
   scheduleStatus: ScheduleStatus;
+  dependencyWarning: boolean;
+  dependencyStageName: string | null;
 }
 
 export interface ProjectSummary {
@@ -111,6 +113,7 @@ export async function getProjectSummary(projectId: string): Promise<ProjectSumma
       status: true,
       plannedStart: true,
       plannedEnd: true,
+      dependsOnStageId: true,
     },
     orderBy: [{ floor: "asc" }, { order: "asc" }],
   });
@@ -148,6 +151,24 @@ export async function getProjectSummary(projectId: string): Promise<ProjectSumma
   }
 
   const now = new Date();
+  // 5b. Dependency warnings — for each stage with dependsOnStageId,
+  //     if stage.plannedStart (or today if null) < dependency.plannedEnd → warning
+  const dependencyStageIds = stagesData
+    .map((s) => s.dependsOnStageId)
+    .filter((id): id is string => id !== null);
+
+  const dependencyStages = dependencyStageIds.length > 0
+    ? await prisma.stage.findMany({
+        where: { id: { in: dependencyStageIds } },
+        select: { id: true, name: true, plannedEnd: true },
+      })
+    : [];
+
+  const dependencyMap = new Map<string, { name: string; plannedEnd: Date | null }>();
+  for (const d of dependencyStages) {
+    dependencyMap.set(d.id, { name: d.name, plannedEnd: d.plannedEnd });
+  }
+
   const stages: StageScheduleInfo[] = stagesData.map((s) => {
     let scheduleStatus: ScheduleStatus = "NO_PLAN";
 
@@ -174,6 +195,21 @@ export async function getProjectSummary(projectId: string): Promise<ProjectSumma
       }
     }
 
+    // Dependency warning: stage starts before its dependency ends
+    let dependencyWarning = false;
+    let dependencyStageName: string | null = null;
+
+    if (s.dependsOnStageId) {
+      const dep = dependencyMap.get(s.dependsOnStageId);
+      if (dep && dep.plannedEnd) {
+        const stageStart = s.plannedStart ?? now;
+        if (stageStart < dep.plannedEnd) {
+          dependencyWarning = true;
+          dependencyStageName = dep.name;
+        }
+      }
+    }
+
     return {
       id: s.id,
       name: s.name,
@@ -181,6 +217,8 @@ export async function getProjectSummary(projectId: string): Promise<ProjectSumma
       plannedStart: s.plannedStart?.toISOString() ?? null,
       plannedEnd: s.plannedEnd?.toISOString() ?? null,
       scheduleStatus,
+      dependencyWarning,
+      dependencyStageName,
     };
   });
 

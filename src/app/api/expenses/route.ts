@@ -14,6 +14,7 @@ interface CreateBody {
   projectId?: string;
   budgetLineId?: string;
   stageId?: string | null;
+  contractorId?: string | null;
   amountMinor?: string;
   description?: string;
   expenseDate?: string;
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
     projectId,
     budgetLineId,
     stageId,
+    contractorId,
     amountMinor,
     description,
     expenseDate,
@@ -70,6 +72,7 @@ export async function POST(request: Request) {
     projectId,
     budgetLineId,
     stageId: stageId || null,
+    contractorId: contractorId || null,
     amountMinor: amountMinorBigInt,
     description,
     expenseDate,

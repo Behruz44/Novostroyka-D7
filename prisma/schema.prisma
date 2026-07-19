@@ -60,6 +60,7 @@ model Project {
   budgetLines BudgetLine[]
   eventLogs   EventLog[]
   chatThreads ChatThread[]
+  contractors Contractor[]
 }
 
 model ProjectMember {
@@ -86,15 +87,18 @@ model Stage {
   status       StageStatus @default(WAIT)
   plannedStart DateTime?
   plannedEnd   DateTime?
+  contractorId String?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
   project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  contractor Contractor? @relation(fields: [contractorId], references: [id], onDelete: SetNull)
   stageMarks StageMark[]
   expenses   Expense[]
 
   @@index([projectId])
   @@index([projectId, order])
+  @@index([contractorId])
 }
 
 model StageMark {
@@ -121,6 +125,7 @@ model Expense {
   projectId       String
   budgetLineId    String
   stageId         String?
+  contractorId    String?
   amountMinor     BigInt
   description     String
   expenseDate     DateTime
@@ -128,15 +133,32 @@ model Expense {
   clientRequestId String?  @unique
   createdAt       DateTime @default(now())
 
-  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user       User       @relation(fields: [createdBy], references: [id], onDelete: Cascade)
-  budgetLine BudgetLine @relation(fields: [budgetLineId], references: [id], onDelete: Restrict)
-  stage      Stage?     @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  budgetLine BudgetLine  @relation(fields: [budgetLineId], references: [id], onDelete: Restrict)
+  stage      Stage?      @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  contractor Contractor? @relation(fields: [contractorId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([projectId, expenseDate])
   @@index([budgetLineId])
   @@index([stageId])
+  @@index([contractorId])
+}
+
+model Contractor {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  specialty String
+  phone     String?
+  createdAt DateTime @default(now())
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stages   Stage[]
+  expenses Expense[]
+
+  @@index([projectId])
 }
 
 model BudgetLine {

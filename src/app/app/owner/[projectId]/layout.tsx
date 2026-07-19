@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
-import { LayoutGrid, ClipboardCheck, BarChart3, FileText, MessageCircle } from "lucide-react";
+import { LayoutGrid, ClipboardCheck, BarChart3, FileText, MessageCircle, HardHat } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IconRail, type IconRailNavItem } from "@/components/dashboard/icon-rail";
 
@@ -48,31 +48,36 @@ export default function OwnerLayout({
       ? "review"
       : pathname.startsWith(`${basePath}/expenses`)
         ? "expenses"
-        : pathname.startsWith(`${basePath}/reports`)
-          ? "reports"
-          : pathname.startsWith(`${basePath}/ask`)
-            ? "ask"
-            : pathname.startsWith(`${basePath}/account`)
-              ? "account"
-              : "overview";
+        : pathname.startsWith(`${basePath}/contractors`)
+          ? "contractors"
+          : pathname.startsWith(`${basePath}/reports`)
+            ? "reports"
+            : pathname.startsWith(`${basePath}/ask`)
+              ? "ask"
+              : pathname.startsWith(`${basePath}/account`)
+                ? "account"
+                : "overview";
 
   const sectionPath =
     activeSection === "review"
       ? "/review"
       : activeSection === "expenses"
         ? "/expenses"
-        : activeSection === "reports"
-          ? "/reports"
-          : activeSection === "ask"
-            ? "/ask"
-            : activeSection === "account"
-              ? "/account"
-              : "";
+        : activeSection === "contractors"
+          ? "/contractors"
+          : activeSection === "reports"
+            ? "/reports"
+            : activeSection === "ask"
+              ? "/ask"
+              : activeSection === "account"
+                ? "/account"
+                : "";
 
   const navItems: IconRailNavItem[] = [
     { id: "overview", label: "Обзор", icon: LayoutGrid, href: basePath },
     { id: "review", label: "Приёмка", icon: ClipboardCheck, href: `${basePath}/review` },
     { id: "expenses", label: "Расходы", icon: BarChart3, href: `${basePath}/expenses` },
+    { id: "contractors", label: "Подрядчики", icon: HardHat, href: `${basePath}/contractors` },
     { id: "reports", label: "Отчёты", icon: FileText, href: `${basePath}/reports` },
     { id: "ask", label: "Спросить", icon: MessageCircle, href: `${basePath}/ask` },
   ];

@@ -8,6 +8,38 @@ export const dynamic = "force-dynamic";
 interface PatchBody {
   plannedStart?: string | null;
   plannedEnd?: string | null;
+  contractorId?: string | null;
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } },
+) {
+  const { session, error } = await requireRole(["OWNER", "ADMIN"] as Role[]);
+  if (error) return error;
+
+  const stage = await prisma.stage.findUnique({
+    where: { id: params.id },
+    select: { id: true, projectId: true, plannedStart: true, plannedEnd: true, contractorId: true },
+  });
+
+  if (!stage) {
+    return NextResponse.json({ error: "Этап не найден" }, { status: 404 });
+  }
+
+  if (
+    session!.user.role !== "ADMIN" &&
+    !session!.user.projectIds.includes(stage.projectId)
+  ) {
+    return NextResponse.json({ error: "Нет доступа к проекту" }, { status: 403 });
+  }
+
+  return NextResponse.json({
+    id: stage.id,
+    plannedStart: stage.plannedStart,
+    plannedEnd: stage.plannedEnd,
+    contractorId: stage.contractorId,
+  });
 }
 
 export async function PATCH(
@@ -44,7 +76,35 @@ export async function PATCH(
     return NextResponse.json({ error: "Некорректный запрос" }, { status: 400 });
   }
 
-  const data: { plannedStart?: Date | null; plannedEnd?: Date | null } = {};
+  const data: {
+    plannedStart?: Date | null;
+    plannedEnd?: Date | null;
+    contractorId?: string | null;
+  } = {};
+
+  if ("contractorId" in body) {
+    if (body.contractorId === null || body.contractorId === "") {
+      data.contractorId = null;
+    } else {
+      const contractor = await prisma.contractor.findUnique({
+        where: { id: body.contractorId },
+        select: { projectId: true },
+      });
+
+      if (!contractor) {
+        return NextResponse.json({ error: "Подрядчик не найден" }, { status: 400 });
+      }
+
+      if (contractor.projectId !== stage.projectId) {
+        return NextResponse.json(
+          { error: "Подрядчик не принадлежит указанному проекту" },
+          { status: 400 },
+        );
+      }
+
+      data.contractorId = body.contractorId;
+    }
+  }
 
   if ("plannedStart" in body) {
     if (body.plannedStart === null || body.plannedStart === "") {
@@ -97,7 +157,7 @@ export async function PATCH(
   const updated = await prisma.stage.update({
     where: { id: stageId },
     data,
-    select: { id: true, plannedStart: true, plannedEnd: true },
+    select: { id: true, plannedStart: true, plannedEnd: true, contractorId: true },
   });
 
   return NextResponse.json(updated);

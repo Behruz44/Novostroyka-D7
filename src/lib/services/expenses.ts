@@ -7,6 +7,7 @@ export interface CreateExpenseInput {
   projectId: string;
   budgetLineId: string;
   stageId?: string | null;
+  contractorId?: string | null;
   amountMinor: bigint;
   description: string;
   expenseDate: string;
@@ -75,6 +76,7 @@ export async function createExpense(
     projectId,
     budgetLineId,
     stageId,
+    contractorId,
     amountMinor,
     description,
     expenseDate,
@@ -164,6 +166,25 @@ export async function createExpense(
     }
   }
 
+  if (contractorId) {
+    const contractor = await prisma.contractor.findUnique({
+      where: { id: contractorId },
+      select: { projectId: true },
+    });
+
+    if (!contractor) {
+      return { ok: false, status: 400, error: "Подрядчик не найден" };
+    }
+
+    if (contractor.projectId !== projectId) {
+      return {
+        ok: false,
+        status: 400,
+        error: "Подрядчик не принадлежит указанному проекту",
+      };
+    }
+  }
+
   if (amountMinor > project.totalBudgetMinor) {
     return {
       ok: false,
@@ -197,6 +218,7 @@ export async function createExpense(
         projectId,
         budgetLineId,
         stageId: stageId || null,
+        contractorId: contractorId || null,
         amountMinor,
         description: description.trim(),
         expenseDate: parsedDate,
@@ -253,6 +275,9 @@ export async function getExpenses(
       },
       stage: {
         select: { id: true, name: true, floor: true },
+      },
+      contractor: {
+        select: { id: true, name: true },
       },
     },
     orderBy: { expenseDate: "desc" },

@@ -21,11 +21,18 @@ interface Stage {
   totalSpent: string;
 }
 
+interface Contractor {
+  id: string;
+  name: string;
+  specialty: string;
+}
+
 interface Expense {
   id: string;
   expenseDate: string;
   budgetLine: { category: string } | null;
   stage: { id: string; name: string; floor: number } | null;
+  contractor: { id: string; name: string } | null;
   description: string;
   amountMinor: string;
   receiptPhotoKey: string | null;
@@ -50,6 +57,7 @@ export default function OwnerExpensesPage() {
   const projectId = params.projectId as string;
   const [budgetLines, setBudgetLines] = useState<BudgetLine[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
+  const [contractors, setContractors] = useState<Contractor[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,6 +66,7 @@ export default function OwnerExpensesPage() {
     date: "",
     category: "",
     stageId: "",
+    contractorId: "",
     amount: "",
     description: "",
   });
@@ -65,11 +74,12 @@ export default function OwnerExpensesPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [budgetRes, expRes, sumRes, stagesRes] = await Promise.all([
+      const [budgetRes, expRes, sumRes, stagesRes, contractorsRes] = await Promise.all([
         fetch(`/api/budget-summary?projectId=${projectId}`),
         fetch(`/api/expenses?projectId=${projectId}`),
         fetch(`/api/projects/${projectId}/summary`),
         fetch(`/api/projects/${projectId}/spending-by-stage?includeAll=true`),
+        fetch(`/api/contractors?projectId=${projectId}`),
       ]);
       if (budgetRes.ok) {
         const bd = await budgetRes.json();
@@ -85,6 +95,10 @@ export default function OwnerExpensesPage() {
       if (stagesRes.ok) {
         const sd = await stagesRes.json();
         setStages(sd.stages || []);
+      }
+      if (contractorsRes.ok) {
+        const cd = await contractorsRes.json();
+        setContractors(cd.contractors || []);
       }
     } catch (err) {
       console.error("expenses fetch failed", err);
@@ -118,6 +132,7 @@ export default function OwnerExpensesPage() {
           projectId,
           budgetLineId: bl.id,
           stageId: form.stageId || undefined,
+          contractorId: form.contractorId || undefined,
           amountMinor: form.amount,
           description: form.description,
           expenseDate: form.date,
@@ -125,7 +140,7 @@ export default function OwnerExpensesPage() {
         }),
       });
       if (res.ok) {
-        setForm({ date: "", category: "", stageId: "", amount: "", description: "" });
+        setForm({ date: "", category: "", stageId: "", contractorId: "", amount: "", description: "" });
         setReceiptPreview(null);
         fetchAll();
       }
@@ -255,6 +270,26 @@ export default function OwnerExpensesPage() {
                           </option>
                         ))}
                       </optgroup>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em] text-[#748590]">
+                    Подрядчик (необязательно)
+                  </label>
+                  <select
+                    value={form.contractorId}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, contractorId: e.target.value }))
+                    }
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:border-ring"
+                  >
+                    <option value="">— Без подрядчика —</option>
+                    {contractors.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -437,6 +472,12 @@ export default function OwnerExpensesPage() {
                                 <span className="text-[#71818b]">
                                   {" · "}
                                   {e.stage.name}
+                                </span>
+                              )}
+                              {e.contractor && (
+                                <span className="text-[#71818b]">
+                                  {" · "}
+                                  {e.contractor.name}
                                 </span>
                               )}
                             </td>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useParams } from "next/navigation";
 
 interface FloorData {
   floor: number;
@@ -14,6 +15,11 @@ interface StageScheduleData {
   plannedStart: string | null;
   plannedEnd: string | null;
   scheduleStatus: "ON_TRACK" | "AT_RISK" | "LATE" | "NO_PLAN";
+}
+
+interface Contractor {
+  id: string;
+  name: string;
 }
 
 interface BuildingSilhouetteProps {
@@ -43,9 +49,20 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
   const [hoveredFloor, setHoveredFloor] = useState<number | null>(null);
   const [animValues, setAnimValues] = useState<Record<number, number>>({});
   const [editingFloor, setEditingFloor] = useState<number | null>(null);
-  const [editForms, setEditForms] = useState<Record<string, { start: string; end: string }>>({});
+  const [editForms, setEditForms] = useState<Record<string, { start: string; end: string; contractorId: string }>>({});
   const [saving, setSaving] = useState<string | null>(null);
+  const [contractors, setContractors] = useState<Contractor[]>([]);
   const rafRef = useRef<number>(0);
+  const params = useParams();
+  const projectId = params?.projectId as string | undefined;
+
+  useEffect(() => {
+    if (!projectId) return;
+    fetch(`/api/contractors?projectId=${projectId}`)
+      .then((r) => r.json())
+      .then((data) => setContractors(data.contractors || []))
+      .catch((err) => console.error("failed to fetch contractors", err));
+  }, [projectId]);
 
   const sorted = [...floors].sort((a, b) => a.floor - b.floor);
   const floor0 = sorted.find((f) => f.floor === 0);
@@ -105,15 +122,31 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
   function openEditPanel(floor: number) {
     const floorStages = stagesByFloor.get(floor);
     if (!floorStages) return;
-    const forms: Record<string, { start: string; end: string }> = {};
+    const forms: Record<string, { start: string; end: string; contractorId: string }> = {};
     for (const s of floorStages) {
       forms[s.id] = {
         start: toDateInputValue(s.plannedStart),
         end: toDateInputValue(s.plannedEnd),
+        contractorId: "",
       };
     }
     setEditForms(forms);
     setEditingFloor(floor);
+
+    // Pre-fill current contractorId per stage (not carried by the stages prop)
+    for (const s of floorStages) {
+      fetch(`/api/stages/${s.id}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.contractorId) {
+            setEditForms((prev) => ({
+              ...prev,
+              [s.id]: { ...prev[s.id], contractorId: data.contractorId },
+            }));
+          }
+        })
+        .catch((err) => console.error("failed to fetch stage contractor", err));
+    }
   }
 
   async function saveStageDates(stageId: string) {
@@ -127,6 +160,7 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
         body: JSON.stringify({
           plannedStart: formData.start || null,
           plannedEnd: formData.end || null,
+          contractorId: formData.contractorId || null,
         }),
       });
       if (res.ok) {
@@ -136,6 +170,7 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
           [stageId]: {
             start: toDateInputValue(updated.plannedStart),
             end: toDateInputValue(updated.plannedEnd),
+            contractorId: updated.contractorId ?? "",
           },
         }));
       }
@@ -406,6 +441,32 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
                   />
                   <span className="text-sm font-medium text-[#24465f]">{stage.name}</span>
                 </div>
+                <div className="mb-3">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-[#748590]">Подрядчик</span>
+                    <select
+                      value={editForms[stage.id]?.contractorId ?? ""}
+                      onChange={(e) =>
+                        setEditForms((prev) => ({
+                          ...prev,
+                          [stage.id]: {
+                            start: prev[stage.id]?.start ?? "",
+                            end: prev[stage.id]?.end ?? "",
+                            contractorId: e.target.value,
+                          },
+                        }))
+                      }
+                      className="rounded-md border border-[#d4dcd9] bg-white px-2.5 py-1.5 text-sm text-[#24465f] outline-none focus:border-[#0E7A6C]"
+                    >
+                      <option value="">— Без подрядчика —</option>
+                      {contractors.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <label className="flex flex-col gap-1">
                     <span className="text-[10px] font-bold uppercase tracking-wide text-[#748590]">Начало</span>
@@ -418,6 +479,7 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
                           [stage.id]: {
                             start: e.target.value,
                             end: prev[stage.id]?.end ?? "",
+                            contractorId: prev[stage.id]?.contractorId ?? "",
                           },
                         }))
                       }
@@ -435,6 +497,7 @@ export function BuildingSilhouette({ floors, stages = [] }: BuildingSilhouettePr
                           [stage.id]: {
                             start: prev[stage.id]?.start ?? "",
                             end: e.target.value,
+                            contractorId: prev[stage.id]?.contractorId ?? "",
                           },
                         }))
                       }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useParams } from "next/navigation";
-import { LayoutGrid, ClipboardCheck, BarChart3, FileText, MessageCircle, HardHat } from "lucide-react";
+import { LayoutGrid, ClipboardCheck, BarChart3, FileText, MessageCircle, HardHat, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IconRail, type IconRailNavItem } from "@/components/dashboard/icon-rail";
 
@@ -74,6 +74,7 @@ export default function OwnerLayout({
                 : "";
 
   const navItems: IconRailNavItem[] = [
+    { id: "portfolio", label: "Портфель", icon: Layers, href: "/app/owner/portfolio" },
     { id: "overview", label: "Обзор", icon: LayoutGrid, href: basePath },
     { id: "review", label: "Приёмка", icon: ClipboardCheck, href: `${basePath}/review` },
     { id: "expenses", label: "Расходы", icon: BarChart3, href: `${basePath}/expenses` },

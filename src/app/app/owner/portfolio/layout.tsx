@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { LayoutGrid, ClipboardCheck, BarChart3, FileText, MessageCircle, Layers } from "lucide-react";
 import { IconRail, type IconRailNavItem } from "@/components/dashboard/icon-rail";
 
-export default function NewProjectLayout({
+export default function PortfolioLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -39,7 +39,7 @@ export default function NewProjectLayout({
     <div className="flex h-screen w-full overflow-hidden bg-[#F5F4F1] text-foreground">
       <IconRail
         items={navItems}
-        activeId=""
+        activeId="portfolio"
         brandLetter="С"
         userInitial="В"
         userLabel="Аккаунт"
@@ -49,7 +49,7 @@ export default function NewProjectLayout({
             : "/app/owner"
         }
       />
-      <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+      <div className="flex min-w-0 flex-1 flex-col overflow-auto">{children}</div>
     </div>
   );
 }

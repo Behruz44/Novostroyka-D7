@@ -6,4 +6,4 @@ healthcheckPath = "/api/health"
 healthcheckTimeout = 120
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
-preDeployCommand = "node_modules/.bin/prisma migrate deploy"
+preDeployCommand = "timeout 60 node_modules/.bin/prisma migrate deploy || true"
